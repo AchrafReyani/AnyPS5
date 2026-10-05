@@ -225,6 +225,7 @@ std::shared_ptr<SourceEntry> getSource(const RecompileRequest& request) {
     struct SourceKeyStorage {};
     auto& key = HostThreadLocal<std::vector<std::uint64_t>, SourceKeyStorage>();
     RecompileCacheKey::Build(request, key);
+    key.push_back(HostSubgroupSize(request));
     const auto find = [&]() -> std::shared_ptr<SourceEntry> {
         const auto found = sources.find(key);
         if (found == sources.end()) return nullptr;
@@ -283,11 +284,11 @@ std::uint64_t nextVariantId() {
     return variants.fetch_add(1, std::memory_order_relaxed) + 1;
 }
 
-CompiledVariant compileVariant(const RecompileRequest& request, IrProgram program, const ResourceSnapshot& resourceSnapshot, const ResourceSpecialization& resourceSpecialization) {
+CompiledVariant compileVariant(const RecompileRequest& request, IrProgram program) {
     const auto inputInfo = RequestInputInfo(request);
     constexpr DeadCodeEliminator deadCodeEliminator;
     constexpr ResourceMaterializer resourceMaterializer;
-    resourceMaterializer.Apply(program, resourceSpecialization);
+    resourceMaterializer.ApplyStaticInterface(program);
 
     deadCodeEliminator.RemoveIdentities(program);
     deadCodeEliminator.Eliminate(program);
@@ -297,9 +298,6 @@ CompiledVariant compileVariant(const RecompileRequest& request, IrProgram progra
 
     constexpr BindingAllocator bindingAllocator;
     auto bindings = bindingAllocator.Allocate(program, request.layout);
-
-    constexpr DescriptorBindingBuilder descriptorBindingBuilder;
-    descriptorBindingBuilder.Populate(bindings, program, resourceSnapshot, partialThreads(request));
 
     SpirvTargetOptions targetOptions {};
     targetOptions.vulkanVersion = request.target.vulkanVersion;
@@ -341,7 +339,7 @@ CompiledVariant compileVariant(const RecompileRequest& request, IrProgram progra
         }
     }
 
-    return {resourceSpecialization, request.layout, std::move(program).TakeCompiledInfo(), std::move(static_cast<CompiledBindingLayout&>(bindings)), std::move(result)};
+    return {request.layout, std::move(program).TakeCompiledInfo(), std::move(static_cast<CompiledBindingLayout&>(bindings)), std::move(result)};
 }
 
 RecompileResult materializeResult(const CompiledVariant& variant, const RecompileRequest& request, const ResourceSnapshot& snapshot) {
@@ -366,9 +364,9 @@ bool sameLayout(const BindingLayout& left, const BindingLayout& right) {
     return left.descriptorSet == right.descriptorSet && left.firstBinding == right.firstBinding && left.pushConstantOffsetBytes == right.pushConstantOffsetBytes && left.pushConstantSizeBytes == right.pushConstantSizeBytes;
 }
 
-std::shared_ptr<const CompiledVariant> findOrCompileVariant(SourceEntry& source, const RecompileRequest& request, const ResourceSnapshot& snapshot, const ResourceSpecialization& specialization, bool& cacheHit) {
+std::shared_ptr<const CompiledVariant> findOrCompileVariant(SourceEntry& source, const RecompileRequest& request, bool& cacheHit) {
     for (const auto& candidate : source.variants) {
-        if (sameLayout(candidate->layout, request.layout) && candidate->specialization == specialization) {
+        if (sameLayout(candidate->layout, request.layout)) {
             cacheHit = true;
             return candidate;
         }
@@ -378,10 +376,9 @@ std::shared_ptr<const CompiledVariant> findOrCompileVariant(SourceEntry& source,
     std::vector<std::byte> diskKey;
     std::shared_ptr<const CompiledVariant> variant;
     if (disk) {
-        ShaderDiskCache::BuildKey(request, HostSubgroupSize(request), specialization, diskKey);
+        ShaderDiskCache::BuildKey(request, HostSubgroupSize(request), diskKey);
         CompiledVariant loaded;
         if (ShaderDiskCache::Load(diskKey, loaded)) {
-            loaded.specialization = specialization;
             loaded.layout = request.layout;
             loaded.artifact.variantId = nextVariantId();
             variant = std::make_shared<const CompiledVariant>(std::move(loaded));
@@ -390,7 +387,7 @@ std::shared_ptr<const CompiledVariant> findOrCompileVariant(SourceEntry& source,
     if (variant == nullptr) {
         auto program = source.program != nullptr ? std::move(*source.program) : PrepareResourceProgram(request);
         source.program.reset();
-        variant = std::make_shared<const CompiledVariant>(compileVariant(request, std::move(program), snapshot, specialization));
+        variant = std::make_shared<const CompiledVariant>(compileVariant(request, std::move(program)));
         if (disk) ShaderDiskCache::Store(std::move(diskKey), variant);
     }
     source.program.reset();
@@ -398,13 +395,12 @@ std::shared_ptr<const CompiledVariant> findOrCompileVariant(SourceEntry& source,
     return variant;
 }
 
-// The cached variant of `source` for the specialization, compiled on first use.
-RecompileResult materializeVariant(SourceEntry& source, const RecompileRequest& request, const ResourceSnapshot& snapshot, const ResourceSpecialization& specialization) {
+RecompileResult materializeVariant(SourceEntry& source, const RecompileRequest& request, const ResourceSnapshot& snapshot) {
     std::shared_ptr<const CompiledVariant> variant;
     bool cacheHit = false;
     {
         std::lock_guard lock(source.mutex);
-        variant = findOrCompileVariant(source, request, snapshot, specialization, cacheHit);
+        variant = findOrCompileVariant(source, request, cacheHit);
     }
     auto result = materializeResult(*variant, request, snapshot);
     result.cacheHit = cacheHit;
@@ -416,18 +412,17 @@ RecompileResult RecompileImpl(const RecompileRequest& request) {
     RequestMemoryView memory(request.context.memory);
     const auto runtime = memory.MakeRuntime(request.context.userData, request.shader.codeAddress);
     ResourceSnapshot snapshot;
-    ResourceSpecialization specialization;
     constexpr ResourceMaterializer materializer;
     if (!request.useCache) {
         auto program = PrepareResourceProgram(request);
         const auto plan = materializer.ExtractPlan(program);
-        materializer.Materialize(plan, runtime, snapshot, specialization);
-        const auto variant = compileVariant(request, std::move(program), snapshot, specialization);
+        materializer.Materialize(plan, runtime, snapshot);
+        const auto variant = compileVariant(request, std::move(program));
         return materializeResult(variant, request, snapshot);
     }
     const auto source = getSource(request);
-    materializer.Materialize(*source->plan, runtime, snapshot, specialization);
-    return materializeVariant(*source, request, snapshot, specialization);
+    materializer.Materialize(*source->plan, runtime, snapshot);
+    return materializeVariant(*source, request, snapshot);
 }
 
 // APS5_NO_RESULT_MEMO=1: every Recompile(request, capture) materializes its own result as before.
@@ -513,7 +508,7 @@ std::uint64_t snapshotHash(const RecompileRequest& request, const ResourceSnapsh
 // The memo'd result of `source`'s variant for the snapshot (design13 R5): a hit returns the shared
 // object, a miss materializes outside the source mutex and inserts (a concurrent miss's object is
 // as good). `memoHit` reports the hit.
-std::shared_ptr<const RecompileResult> materializeMemoized(SourceEntry& source, const RecompileRequest& request, const ResourceSnapshot& snapshot, const ResourceSpecialization& specialization, bool* memoHit) {
+std::shared_ptr<const RecompileResult> materializeMemoized(SourceEntry& source, const RecompileRequest& request, const ResourceSnapshot& snapshot, bool* memoHit) {
     static const bool profile = std::getenv("APS5_PROFILE_DRAW") != nullptr;
     std::shared_ptr<const CompiledVariant> variant;
     bool cacheHit = false;
@@ -522,7 +517,7 @@ std::shared_ptr<const RecompileResult> materializeMemoized(SourceEntry& source, 
     auto& counters = resultMemoCounters();
     {
         std::lock_guard lock(source.mutex);
-        variant = findOrCompileVariant(source, request, snapshot, specialization, cacheHit);
+        variant = findOrCompileVariant(source, request, cacheHit);
         index = (variant->artifact.variantId * 0x9e3779b97f4a7c15ull) ^ hash;
         const auto found = source.memoIndex.find(index);
         if (found != source.memoIndex.end() && found->second->variantId == variant->artifact.variantId && found->second->hash == hash) {
@@ -571,11 +566,11 @@ std::shared_ptr<const RecompileResult> materializeMemoized(SourceEntry& source, 
 std::shared_ptr<const RecompileResult> RecompileImpl(const RecompileRequest& request, const ResourceCapture& capture, bool* memoHit) {
     if (!request.useCache || capture.source == nullptr) {
         auto program = PrepareResourceProgram(request);
-        const auto variant = compileVariant(request, std::move(program), capture.snapshot, capture.specialization);
+        const auto variant = compileVariant(request, std::move(program));
         return std::make_shared<const RecompileResult>(materializeResult(variant, request, capture.snapshot));
     }
-    if (!ResultMemo()) return std::make_shared<const RecompileResult>(materializeVariant(*capture.source, request, capture.snapshot, capture.specialization));
-    return materializeMemoized(*capture.source, request, capture.snapshot, capture.specialization, memoHit);
+    if (!ResultMemo()) return std::make_shared<const RecompileResult>(materializeVariant(*capture.source, request, capture.snapshot));
+    return materializeMemoized(*capture.source, request, capture.snapshot, memoHit);
 }
 
 template <typename Impl>
@@ -606,12 +601,12 @@ namespace {
 void materializeCapture(ResourceCapture& capture, const SrtRuntime& runtime) {
     const auto& plan = *capture.plan;
     if (std::none_of(plan.pureFlatSlots.begin(), plan.pureFlatSlots.end(), [](std::uint8_t pure) { return pure != 0u; })) {
-        ResourceMaterializer{}.Materialize(plan, runtime, capture.snapshot, capture.specialization);
+        ResourceMaterializer{}.Materialize(plan, runtime, capture.snapshot);
         return;
     }
     SrtRuntime traced = runtime;
     traced.readTrace = &capture.readTrace;
-    ResourceMaterializer{}.Materialize(plan, traced, capture.snapshot, capture.specialization);
+    ResourceMaterializer{}.Materialize(plan, traced, capture.snapshot);
     auto& other = capture.readTrace.otherReads;
     std::sort(other.begin(), other.end());
     other.erase(std::unique(other.begin(), other.end()), other.end());

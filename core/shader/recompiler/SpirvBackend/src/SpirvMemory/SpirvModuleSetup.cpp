@@ -50,12 +50,12 @@ const ShaderWorkgroupInputInfo* ShaderWorkgroupInput(const SpirvEmitterState& st
 }
 
 
-void EmitModuleHeader(SpirvModule& module, const IrProgram& program, const BindingAllocationResult& bindings) {
+void EmitModuleHeader(SpirvModule& module, const IrProgram& program, const CompiledBindingLayout& bindings) {
     CheckBindings(program, bindings);
     EmitBaseHeader(module, program);
 }
 
-void EmitModuleHeader(SpirvEmitterState& state, const BindingAllocationResult& bindings) {
+void EmitModuleHeader(SpirvEmitterState& state, const CompiledBindingLayout& bindings) {
     CheckBindings(state.program, bindings);
     DefineModule(state);
 }
