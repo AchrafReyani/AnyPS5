@@ -135,6 +135,7 @@ struct Context {
     // (bindless image tables in graphics stages).
     bool descriptorIndexing = false;
     bool imageInt64Atomics = false;
+    bool nullDescriptors = false;
     bool primitiveListRestart = false;
     bool imageViewMinLod = false;
     bool pipelineExecutableInfo = false;

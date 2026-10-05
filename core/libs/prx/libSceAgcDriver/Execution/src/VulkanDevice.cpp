@@ -1032,6 +1032,18 @@ VulkanDevice::VulkanDevice(const PresentationWindow* window) : state(std::make_u
         byteFeatures.pNext = &pipelineFeatures;
     }
     bdaFeatures.pNext = &byteFeatures;
+    VkPhysicalDeviceRobustness2FeaturesEXT robustness2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT};
+    Graphics::Require(hasExtension(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME), "shader runtime requires VK_EXT_robustness2");
+    VkPhysicalDeviceFeatures2 queried{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &robustness2};
+    state->InstanceFunction<PFN_vkGetPhysicalDeviceFeatures2>("vkGetPhysicalDeviceFeatures2")(selected, &queried);
+    Graphics::Require(robustness2.nullDescriptor == VK_TRUE, "shader runtime requires nullDescriptor");
+    robustness2 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT};
+    robustness2.nullDescriptor = VK_TRUE;
+    robustness2.pNext = bdaFeatures.pNext;
+    bdaFeatures.pNext = &robustness2;
+    deviceExtensions.push_back(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME);
+    deviceInfo.enabledExtensionCount = static_cast<std::uint32_t>(deviceExtensions.size());
+    deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
     deviceInfo.pNext = &bdaFeatures;
     auto shaderProfile = std::make_unique<const ShaderDeviceProfile>(buildTarget(), deviceInfo, state->properties.limits);
     check(state->InstanceFunction<PFN_vkCreateDevice>("vkCreateDevice")(selected, &deviceInfo, nullptr, &state->device), "vkCreateDevice");
@@ -2439,6 +2451,7 @@ Graphics::Context VulkanDevice::buildContext() const {
     context.functions = state->functionsReady ? &state->deviceFunctions : nullptr;
     context.descriptorIndexing = state->descriptorIndexing;
     context.imageInt64Atomics = state->imageInt64Atomics;
+    context.nullDescriptors = state->shaderProfile != nullptr && state->shaderProfile->NullDescriptors();
     context.primitiveListRestart = state->primitiveListRestart;
     context.imageViewMinLod = state->imageViewMinLod;
     context.pipelineExecutableInfo = state->pipelineExecutableInfo;
