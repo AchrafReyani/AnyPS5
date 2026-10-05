@@ -1,6 +1,7 @@
 #ifndef CORE_SHADER_RECOMPILIER_INCLUDE_SHADER_RECOMPILIER_RECOMPILER_HPP
 #define CORE_SHADER_RECOMPILIER_INCLUDE_SHADER_RECOMPILIER_RECOMPILER_HPP
 
+#include "RuntimeAbi.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -407,6 +408,7 @@ struct CompiledShaderArtifact {
     SharedSpirv spirv;
     std::uint32_t memoryOffsetDword = 0;
     std::uint32_t bdaAbiVersion = 0;
+    std::uint32_t runtimeAbiVersion = RuntimeAbi::Version;
     std::vector<VertexInput> vertexInputs;
     std::int32_t vertexOffsetSgpr = -1;
     std::int32_t instanceOffsetSgpr = -1;

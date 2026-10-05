@@ -895,6 +895,7 @@ void ShaderResources::buildPrepare(std::span<const CompiledShader> shaders, cons
         std::set<std::uint32_t> occupied;
         for (const auto& shader : shaders) {
             Require(shader.program != nullptr, "missing compiled shader");
+            ShaderRecompiler::RuntimeAbi::RequireVersion(shader.program->runtimeAbiVersion);
             const VkShaderStageFlags flags = VulkanStage(shader.stage);
             std::uint64_t stageDescriptors = 0;
             std::vector<std::size_t> offsetsInData;
