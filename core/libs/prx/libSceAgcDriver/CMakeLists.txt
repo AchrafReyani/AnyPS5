@@ -150,6 +150,7 @@ set(agcDriverSources
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution/src/Driver/Synchronization/WaitMemory.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution/src/Driver/Synchronization/WaitStatistics.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution/src/WorkerSampler.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/Execution/src/ThreadPriority.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution/src/GuestMemory.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution/src/ShaderMemory.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution/src/BdaFeatures.cpp
@@ -229,6 +230,7 @@ target_link_libraries(libSceAgcDriver PRIVATE
         SDL2-static
         libc
         libkernel
+        ${CMAKE_DL_LIBS}
 )
 
 set_target_properties(libSceAgcDriver PROPERTIES CXX_EXTENSIONS OFF)
@@ -811,7 +813,7 @@ target_include_directories(agc_driver_mesh_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/3rdparty/Vulkan-Headers/include
         ${CMAKE_SOURCE_DIR}/3rdparty/SPIRV-Headers/include
 )
-target_link_libraries(agc_driver_mesh_tests PRIVATE shader_recompiler_agc_driver SDL2-static libc libkernel)
+target_link_libraries(agc_driver_mesh_tests PRIVATE shader_recompiler_agc_driver SDL2-static libc libkernel ${CMAKE_DL_LIBS})
 set_target_properties(agc_driver_mesh_tests PROPERTIES CXX_EXTENSIONS OFF)
 configure_windows_unwind(agc_driver_mesh_tests)
 
