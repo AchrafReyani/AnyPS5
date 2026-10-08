@@ -699,6 +699,7 @@ static void CheckUnhintedKernelMappingsLandInTheWindow() {
     Require(sceKernelReleaseDirectMemory(phys, page) == 0);
 }
 
+#if defined(__linux__)
 static void CheckUnmappedArenaRangeStaysReserved() {
     constexpr std::size_t page = 0x4000;
     void* address = nullptr;
@@ -712,6 +713,7 @@ static void CheckUnmappedArenaRangeStaysReserved() {
     Require(again != nullptr);
     Require(sceKernelMunmap(again, page) == 0);
 }
+#endif
 
 static void CheckArenaPlacesUnhintedMappingsInsideTheWindow() {
     constexpr std::size_t page = 0x4000;
@@ -1545,7 +1547,9 @@ int main() {
     CheckGuestModuleImageProtection();
 #endif
     CheckUnhintedKernelMappingsLandInTheWindow();
+#if defined(__linux__)
     CheckUnmappedArenaRangeStaysReserved();
+#endif
     CheckArenaPlacesUnhintedMappingsInsideTheWindow();
     CheckArenaReusesAFreedRange();
     CheckArenaHonoursHintsWithoutGoingBelowThem();
