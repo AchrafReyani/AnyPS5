@@ -14,6 +14,7 @@
 extern "C" {
 int APS5_VABI remove_nid_postfix(const char*);
 int APS5_VABI rename_nid_postfix(const char*, const char*);
+int APS5_VABI sceKernelRename(const char*, const char*);
 int APS5_VABI sceKernelChmod_nid_postfix(const char*, unsigned short);
 int APS5_VABI sceKernelFchmod(int, unsigned short);
 int APS5_VABI fchmod_nid_postfix(int, int);
@@ -111,6 +112,33 @@ int main() {
     Require(rename_nid_postfix(file.string().c_str(), renamed.string().c_str()) == -1);
     Require(*__error_nid_postfix() == 2);
     Require(rename_nid_postfix(renamed.string().c_str(), file.string().c_str()) == 0);
+    {
+        const auto area = root / "kernel_rename";
+        std::filesystem::create_directories(area / "full");
+        { std::ofstream stream(area / "full" / "entry"); stream << "x"; }
+        { std::ofstream stream(area / "source"); stream << "moved"; }
+        { std::ofstream stream(area / "target"); stream << "replaced"; }
+        std::filesystem::create_directories(area / "folder" / "inner");
+        std::filesystem::create_directories(area / "empty");
+        const auto at = [&](const char* name) { return (area / name).string(); };
+        Require(sceKernelRename(at("missing").c_str(), at("anything").c_str()) == static_cast<int>(0x80020002u));
+        Require(sceKernelRename(at("missing").c_str(), at("target").c_str()) == static_cast<int>(0x80020002u));
+        Require(sceKernelRename(at("source").c_str(), at("absent/name").c_str()) == static_cast<int>(0x80020002u));
+        Require(sceKernelRename(at("source").c_str(), at("target/name").c_str()) == static_cast<int>(0x80020014u));
+        Require(sceKernelRename(at("folder").c_str(), at("target").c_str()) == static_cast<int>(0x80020014u));
+        Require(sceKernelRename(at("source").c_str(), at("empty").c_str()) == static_cast<int>(0x80020015u));
+        Require(sceKernelRename(at("folder").c_str(), at("full").c_str()) == static_cast<int>(0x80020042u));
+        Require(sceKernelRename(at("folder").c_str(), at("folder/inner/moved").c_str()) == static_cast<int>(0x80020016u));
+        Require(std::filesystem::is_directory(area / "folder" / "inner") && std::filesystem::is_regular_file(area / "full" / "entry"));
+        Require(sceKernelRename(at("source").c_str(), at("target").c_str()) == 0);
+        { std::ifstream stream(area / "target"); std::string contents; std::getline(stream, contents); Require(contents == "moved"); }
+        Require(!std::filesystem::exists(area / "source"));
+        Require(sceKernelRename(at("target").c_str(), at("target").c_str()) == 0 && std::filesystem::is_regular_file(area / "target"));
+        Require(sceKernelRename(at("folder").c_str(), at("empty").c_str()) == 0);
+        Require(!std::filesystem::exists(area / "folder") && std::filesystem::is_directory(area / "empty" / "inner"));
+        Require(sceKernelRename(at("empty").c_str(), at("renamed").c_str()) == 0 && std::filesystem::is_directory(area / "renamed" / "inner"));
+        std::filesystem::remove_all(area);
+    }
     Require(remove_nid_postfix(file.string().c_str()) == 0);
     Require(!std::filesystem::exists(file));
     Require(remove_nid_postfix(file.string().c_str()) == -1 && *__error_nid_postfix() == 2);
