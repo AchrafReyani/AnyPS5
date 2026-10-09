@@ -631,18 +631,26 @@ int64_t APS5_VABI sceKernelPwritev(int d, const KernelIovec* iov, int iovcnt, in
 #endif
 
 static int RenameError_nid_no_patch(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    constexpr int GuestEacces = 13;
     constexpr int GuestEisdir = 21;
     namespace fs = std::filesystem;
+    const auto inspectionError = [](const fs::file_status& status, const std::error_code& error) {
+        if (error == std::errc::not_a_directory) return GUEST_ENOTDIR;
+        if (status.type() == fs::file_type::not_found) return GUEST_ENOENT;
+        if (error == std::errc::permission_denied) return GuestEacces;
+        return GUEST_EIO;
+    };
     std::error_code error;
     const auto sourceStatus = fs::symlink_status(source, error);
-    if (!fs::exists(sourceStatus)) return GUEST_ENOENT;
+    if (!fs::exists(sourceStatus)) return inspectionError(sourceStatus, error);
     const auto parent = destination.parent_path();
     if (!parent.empty()) {
         const auto parentStatus = fs::status(parent, error);
-        if (!fs::exists(parentStatus)) return GUEST_ENOENT;
+        if (!fs::exists(parentStatus)) return inspectionError(parentStatus, error);
         if (!fs::is_directory(parentStatus)) return GUEST_ENOTDIR;
     }
     const auto destinationStatus = fs::symlink_status(destination, error);
+    if (error && destinationStatus.type() != fs::file_type::not_found) return inspectionError(destinationStatus, error);
     if (!fs::exists(destinationStatus) || !fs::equivalent(source, destination, error)) {
         const bool sourceIsDirectory = fs::is_directory(sourceStatus);
         if (fs::exists(destinationStatus)) {

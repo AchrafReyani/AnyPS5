@@ -137,6 +137,18 @@ int main() {
         Require(sceKernelRename(at("folder").c_str(), at("empty").c_str()) == 0);
         Require(!std::filesystem::exists(area / "folder") && std::filesystem::is_directory(area / "empty" / "inner"));
         Require(sceKernelRename(at("empty").c_str(), at("renamed").c_str()) == 0 && std::filesystem::is_directory(area / "renamed" / "inner"));
+#ifndef _WIN32
+        if (::geteuid() != 0) {
+            std::filesystem::create_directories(area / "locked");
+            { std::ofstream stream(area / "locked" / "entry"); stream << "x"; }
+            std::filesystem::permissions(area / "locked", std::filesystem::perms::none);
+            const int lockedSource = sceKernelRename(at("locked/entry").c_str(), at("moved").c_str());
+            const int lockedTarget = sceKernelRename(at("target").c_str(), at("locked/moved").c_str());
+            std::filesystem::permissions(area / "locked", std::filesystem::perms::owner_all);
+            Require(lockedSource == static_cast<int>(0x8002000du) && lockedTarget == static_cast<int>(0x8002000du));
+            Require(std::filesystem::is_regular_file(area / "locked" / "entry") && std::filesystem::is_regular_file(area / "target"));
+        }
+#endif
         std::filesystem::remove_all(area);
     }
     Require(remove_nid_postfix(file.string().c_str()) == 0);
