@@ -630,14 +630,44 @@ int64_t APS5_VABI sceKernelPwritev(int d, const KernelIovec* iov, int iovcnt, in
 
 #endif
 
+static int RenameError_nid_no_patch(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    constexpr int GuestEisdir = 21;
+    namespace fs = std::filesystem;
+    std::error_code error;
+    const auto sourceStatus = fs::symlink_status(source, error);
+    if (!fs::exists(sourceStatus)) return GUEST_ENOENT;
+    const auto parent = destination.parent_path();
+    if (!parent.empty()) {
+        const auto parentStatus = fs::status(parent, error);
+        if (!fs::exists(parentStatus)) return GUEST_ENOENT;
+        if (!fs::is_directory(parentStatus)) return GUEST_ENOTDIR;
+    }
+    const auto destinationStatus = fs::symlink_status(destination, error);
+    if (!fs::exists(destinationStatus) || !fs::equivalent(source, destination, error)) {
+        const bool sourceIsDirectory = fs::is_directory(sourceStatus);
+        if (fs::exists(destinationStatus)) {
+            const bool destinationIsDirectory = fs::is_directory(destinationStatus);
+            if (sourceIsDirectory && !destinationIsDirectory) return GUEST_ENOTDIR;
+            if (!sourceIsDirectory && destinationIsDirectory) return GuestEisdir;
+            if (destinationIsDirectory && !fs::is_empty(destination, error)) return GUEST_ENOTEMPTY;
+        }
+        if (sourceIsDirectory) {
+            const auto inside = fs::weakly_canonical(destination, error).lexically_relative(fs::weakly_canonical(source, error));
+            if (!inside.empty() && *inside.begin() != "..") return GUEST_EINVAL;
+        }
+#ifdef _WIN32
+        if (sourceIsDirectory && fs::exists(destinationStatus) && !fs::remove(destination, error)) return GUEST_EIO;
+#endif
+    }
+    fs::rename(source, destination, error);
+    return error ? GUEST_EIO : 0;
+}
+
 int APS5_VABI sceKernelRename(const char* from, const char* to) {
     if (from == nullptr || to == nullptr) throw std::invalid_argument("sceKernelRename: path is null");
     const auto source = ResolvePath_nid_no_patch(from);
-    std::error_code error;
-    if (!std::filesystem::exists(source, error)) return SceErrorFromErrno(GUEST_ENOENT);
     const auto destination = ResolvePath_nid_no_patch(to);
-    std::filesystem::rename(source, destination, error);
-    if (error) return SceErrorFromErrno(GUEST_EIO);
+    if (const int error = RenameError_nid_no_patch(source, destination)) return SceErrorFromErrno(error);
     RecordWrittenPath_nid_no_patch(source);
     RecordWrittenPath_nid_no_patch(destination);
     return 0;
