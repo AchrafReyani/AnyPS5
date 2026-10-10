@@ -128,13 +128,15 @@ static void TestStreamRejections() {
     Require(sceNgs2SystemDestroy(system, nullptr) == SCE_NGS2_OK);
 }
 
+static const std::int16_t Unused = 0;
+
 static void TestSilenceBlock() {
     const auto system = CreateSystem();
     const auto master = Mastering(system, 1);
     const auto rack = CreateRack(system, SCE_NGS2_RACK_ID_SAMPLER);
     const auto voice = StreamVoice(rack, 0, master);
 
-    AddBlock(voice, nullptr, 0, Grain, SCE_NGS2_WAVEFORM_BLOCKS_FLAG_SILENCE);
+    AddBlock(voice, &Unused, 0, Grain, SCE_NGS2_WAVEFORM_BLOCKS_FLAG_SILENCE);
     Event(voice, SCE_NGS2_VOICE_EVENT_PLAY);
     auto out = RenderI16(system);
     for (std::uint32_t i = 0; i < Grain; i++) Require(out[i] == 0);
@@ -152,7 +154,7 @@ static void TestSilenceBlock() {
     Require(Flags(withData) == 0);
 
     const auto dataless = StreamVoice(rack, 2, master);
-    Require(Throws([&] { AddBlock(dataless, nullptr, 0, Grain, 0); }));
+    Require(Throws([&] { AddBlock(dataless, &Unused, 0, Grain, 0); }));
     Require(sceNgs2SystemDestroy(system, nullptr) == SCE_NGS2_OK);
 }
 
