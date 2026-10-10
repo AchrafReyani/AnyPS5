@@ -317,7 +317,12 @@ void Driver::enqueue(Submission submission) {
     if (!worker.thread.joinable()) worker.thread = std::thread([this, queue] {
         char role[32];
         std::snprintf(role, sizeof(role), "queue 0x%x worker", queue);
-        RaiseWorkerThreadPriority(role);
+        try {
+            RaiseWorkerThreadPriority(role);
+        } catch (...) {
+            ReportFailure(std::current_exception());
+            return;
+        }
         run(queue);
     });
 }

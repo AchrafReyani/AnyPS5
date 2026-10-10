@@ -283,9 +283,10 @@ void Raise(const char* role) {
 }
 
 ThreadPriorityMode ParseThreadPriorityMode(const char* text) {
-    if (text == nullptr || *text == '\0' || std::strcmp(text, "off") == 0 || std::strcmp(text, "0") == 0) return ThreadPriorityMode::Off;
-    if (std::strcmp(text, "rt") == 0 || std::strcmp(text, "realtime") == 0) return ThreadPriorityMode::Realtime;
-    return ThreadPriorityMode::High;
+    if (text == nullptr || *text == '\0' || std::strcmp(text, "off") == 0) return ThreadPriorityMode::Off;
+    if (std::strcmp(text, "high") == 0) return ThreadPriorityMode::High;
+    if (std::strcmp(text, "rt") == 0) return ThreadPriorityMode::Realtime;
+    throw std::invalid_argument(std::string("APS5_THREAD_PRIORITY=") + text + " is not off, high or rt");
 }
 
 RealtimePlan PlanRealtime(std::uint32_t priority, const std::optional<RtkitLimits>& rtkit, RttimeLimit current, std::uint64_t requestedUs) {

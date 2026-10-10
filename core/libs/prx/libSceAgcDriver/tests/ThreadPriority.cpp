@@ -19,9 +19,18 @@ void Require(bool condition, const std::string& message) {
 }
 
 void ParseTests() {
-    for (const char* text : {static_cast<const char*>(nullptr), "", "off", "0"}) Require(ParseThreadPriorityMode(text) == ThreadPriorityMode::Off, std::string("APS5_THREAD_PRIORITY=") + (text == nullptr ? "(unset)" : text) + " must leave priorities alone");
-    for (const char* text : {"rt", "realtime"}) Require(ParseThreadPriorityMode(text) == ThreadPriorityMode::Realtime, std::string("APS5_THREAD_PRIORITY=") + text + " must ask for real-time priority");
-    for (const char* text : {"high", "1", "on"}) Require(ParseThreadPriorityMode(text) == ThreadPriorityMode::High, std::string("APS5_THREAD_PRIORITY=") + text + " must ask for a nice level");
+    for (const char* text : {static_cast<const char*>(nullptr), "", "off"}) Require(ParseThreadPriorityMode(text) == ThreadPriorityMode::Off, std::string("APS5_THREAD_PRIORITY=") + (text == nullptr ? "(unset)" : text) + " must leave priorities alone");
+    Require(ParseThreadPriorityMode("rt") == ThreadPriorityMode::Realtime, "APS5_THREAD_PRIORITY=rt must ask for real-time priority");
+    Require(ParseThreadPriorityMode("high") == ThreadPriorityMode::High, "APS5_THREAD_PRIORITY=high must ask for a nice level");
+    for (const char* text : {"hgih", "HIGH", "realtime", "on", "1", "0", " high"}) {
+        bool threw = false;
+        try {
+            static_cast<void>(ParseThreadPriorityMode(text));
+        } catch (const std::invalid_argument&) {
+            threw = true;
+        }
+        Require(threw, std::string("APS5_THREAD_PRIORITY=") + text + " must be rejected");
+    }
 }
 
 void ExpectRefused(const RealtimePlan& plan, const std::string& what) {
@@ -47,7 +56,6 @@ void PlanTests() {
     Require(kept.refusal.empty() && !kept.limit.has_value(), "limits rtkit already accepts must be left alone");
 }
 
-// Run with APS5_THREAD_PRIORITY=rt or =high and no reachable rtkit: the raise must throw, not settle for less.
 void RefusalTest() {
     bool threw = false;
     try {
