@@ -78,7 +78,7 @@ public:
 #endif
         Require(block != nullptr, "flat apertures: cannot allocate the guest block");
         std::memset(block, 0, GuestBytes);
-        GuestAllocations::Mutation().Add(block, GuestBytes, true, true);
+        GuestAllocations::Mutation().Add(block, GuestBytes, true, true, true);
     }
 
     ~GuestBlock() {
