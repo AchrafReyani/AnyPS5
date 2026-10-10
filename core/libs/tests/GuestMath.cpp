@@ -27,6 +27,10 @@ extern LibcFloatConstant _FNan_nid_postfix;
 short APS5_VABI _FDtest_nid_postfix(const float*);
 int APS5_VABI __fpclassifyf_nid_postfix(float);
 float APS5_VABI fmodf_nid_postfix(float, float);
+double APS5_VABI trunc_nid_postfix(double);
+double APS5_VABI fabs_nid_postfix(double);
+double APS5_VABI sqrt_nid_postfix(double);
+double APS5_VABI fma_nid_postfix(double, double, double);
 float APS5_VABI asinf_nid_postfix(float);
 float APS5_VABI acosf_nid_postfix(float);
 float APS5_VABI atan2f_nid_postfix(float, float);
@@ -53,6 +57,27 @@ std::lldiv_t APS5_VABI lldiv_nid_postfix(long long, long long);
 std::lldiv_t APS5_VABI ldiv_nid_postfix(std::int64_t, std::int64_t);
 }
 static void Require(bool value) { if (!value) std::abort(); }
+
+static void CheckExactOperations() {
+    const double infinity = std::numeric_limits<double>::infinity();
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    Require(trunc_nid_postfix(2.7) == 2. && trunc_nid_postfix(-2.7) == -2.);
+    Require(trunc_nid_postfix(-0.5) == 0. && std::signbit(trunc_nid_postfix(-0.5)));
+    Require(trunc_nid_postfix(4503599627370497.) == 4503599627370497. && trunc_nid_postfix(-1e300) == -1e300);
+    Require(trunc_nid_postfix(-infinity) == -infinity && std::isnan(trunc_nid_postfix(nan)));
+    Require(fabs_nid_postfix(-3.5) == 3.5 && fabs_nid_postfix(-infinity) == infinity);
+    Require(fabs_nid_postfix(-0.) == 0. && !std::signbit(fabs_nid_postfix(-0.)));
+    Require(std::isnan(fabs_nid_postfix(-nan)) && !std::signbit(fabs_nid_postfix(-nan)));
+    Require(sqrt_nid_postfix(4.) == 2. && sqrt_nid_postfix(2.) == 1.4142135623730951);
+    Require(sqrt_nid_postfix(-0.) == 0. && std::signbit(sqrt_nid_postfix(-0.)));
+    Require(sqrt_nid_postfix(infinity) == infinity && std::isnan(sqrt_nid_postfix(-1.)));
+    Require(sqrt_nid_postfix(std::numeric_limits<double>::denorm_min()) == 2.2227587494850775e-162);
+    Require(fma_nid_postfix(2., 3., 4.) == 10.);
+    volatile double tenth = 0.1;
+    Require(fma_nid_postfix(tenth, 10., -1.) == 0x1p-54);
+    Require(fma_nid_postfix(0x1p1023, 2., -0x1p1023) == 0x1p1023);
+    Require(std::isnan(fma_nid_postfix(infinity, 0., 1.)));
+}
 
 static void CheckIntegerConversions() {
     for (const long long numerator : {4294967301LL, -4294967301LL}) {
@@ -201,6 +226,7 @@ static void CheckFloatClassification() {
 int main() {
     CheckFloatClassification();
     CheckIntegerConversions();
+    CheckExactOperations();
     Require(atof_nid_postfix(" -12.5tail") == -12.5);
     char* end = nullptr;
     const char input[] = "0x1.8p+2 remainder";
