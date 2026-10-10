@@ -230,7 +230,8 @@ int main() {
     Require(remove_nid_postfix(sized.string().c_str()) == 0);
     const auto present = root / "present.txt";
     const auto presentName = present.string();
-    const auto missingName = (root / "missing.txt").string();
+    const auto missing = root / "missing.txt";
+    const auto missingName = missing.string();
     const auto rootName = root.string();
     { std::ofstream stream(present); stream << "posix"; }
     FileStat status{};
@@ -275,7 +276,7 @@ int main() {
     Require(CreateSymbolicLinkW(fileLink.c_str(), present.c_str(), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
     Require(CreateSymbolicLinkW(directoryLink.c_str(), targetDirectory.c_str(),
         SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
-    Require(CreateSymbolicLinkW(danglingLink.c_str(), missingName.c_str(), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
+    Require(CreateSymbolicLinkW(danglingLink.c_str(), missing.c_str(), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
     const auto checkUnsupportedLink = [](const std::filesystem::path& link) {
         FileStat untouched;
         std::memset(&untouched, 0x5a, sizeof(untouched));
@@ -295,7 +296,8 @@ int main() {
     Require(checkUnsupportedLink(fileLink));
     Require(checkUnsupportedLink(directoryLink));
     Require(checkUnsupportedLink(danglingLink));
-    Require(std::filesystem::remove(fileLink) && std::filesystem::remove(directoryLink) && std::filesystem::remove(danglingLink));
+    Require(std::filesystem::remove(fileLink) && std::filesystem::remove(directoryLink) &&
+        std::filesystem::remove(danglingLink) && std::filesystem::remove(targetDirectory));
 #endif
     FileStat identity{};
     FileStat byDescriptor{};
