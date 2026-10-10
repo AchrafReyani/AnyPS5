@@ -103,6 +103,7 @@ def main():
         work = Path(directory)
         check(relinker, work, 'console', [])
         check(relinker, work, 'gui', ['--windows-gui'])
+        check(relinker, work, 'unicode ü日', [])
     print('Windows working directory integration tests passed')
 
 
