@@ -974,7 +974,8 @@ std::uint32_t ApertureAtomic32(SpirvValueEmitContext& ctx, const IrValue& inst, 
         return EmitValueOrZeroIfCondition(state, EmitMemoryElementInBounds(state, resource, index), [&] {
             const auto pointer = EmitMemoryElementPointer(state, resource, index);
             if (kind == ResourceKind::Lds) {
-                return AtomicUpdate(state, pointer, kind, [&](std::uint32_t current) { return FlatAtomicNext32(state, opcode, current, value, comparator); });
+                const auto update = [&]() { return AtomicUpdate(state, pointer, kind, [&](std::uint32_t current) { return FlatAtomicNext32(state, opcode, current, value, comparator); }); };
+                return state.requirements.ldsLock ? LockedLdsUpdate(state, TypeU32(state), ConstantU32(state, 0u), update) : update();
             }
             const auto old = state.module.AllocateId();
             state.module.AddFunction(spv::OpLoad, TypeU32(state), old, pointer);

@@ -19,6 +19,8 @@ constexpr std::uint32_t DsAddU32Hi = 0xd8000004u;
 constexpr std::uint32_t DsIncU32Hi = 0xd80c0004u;
 constexpr std::uint32_t DsOperands = 0x00000201u;
 constexpr std::uint32_t DsOperand32 = 0x00000401u;
+constexpr std::uint32_t FlatAtomicAddU32 = 0xdcc90000u;
+constexpr std::uint32_t FlatAtomicOperands = 0x0a7d0402u;
 
 struct Usage {
     std::size_t elects = 0;
@@ -33,9 +35,9 @@ void Require(bool condition, const std::string& message) {
 }
 
 std::vector<std::uint32_t> RecompileProgram(std::span<const std::uint32_t> code) {
-    const std::array<std::uint32_t, 4> capabilities{spv::CapabilityShader, spv::CapabilityGroupNonUniform, spv::CapabilityGroupNonUniformBallot, spv::CapabilityGroupNonUniformShuffle};
+    const std::array<std::uint32_t, 7> capabilities{spv::CapabilityShader, spv::CapabilityGroupNonUniform, spv::CapabilityGroupNonUniformBallot, spv::CapabilityGroupNonUniformShuffle, spv::CapabilityInt64, spv::CapabilityPhysicalStorageBufferAddresses, spv::CapabilityStorageBuffer8BitAccess};
     const std::array<std::uint32_t, 4> userData{};
-    const std::array<std::string_view, 0> extensions{};
+    const std::array<std::string_view, 2> extensions{"SPV_KHR_physical_storage_buffer", "SPV_KHR_8bit_storage"};
     RecompileRequest request{};
     request.shader = {ShaderStage::Compute, 0x20000u, code, 0, {}};
     request.context.waveSize = 32;
@@ -106,6 +108,16 @@ void CheckOtherUpdatePathTakesLock() {
     Require(usage.elects == 2 && usage.exchanges >= 2 && usage.releases == 2, "ds_inc_u32 in a program with ds_add_u64 does not take the workgroup lock: elect " + std::to_string(usage.elects) + ", lock release " + std::to_string(usage.releases) + ", expected 2 each");
 }
 
+void CheckFlatAtomicTakesLockWith64Bit() {
+    const auto usage = Compile({DsAddU64, DsOperands, FlatAtomicAddU32, FlatAtomicOperands});
+    Require(usage.elects == 2, "a 32-bit flat atomic into the LDS aperture in a program with ds_add_u64 does not take the workgroup lock: elect " + std::to_string(usage.elects) + ", expected 2");
+}
+
+void CheckFlatAtomicOnlyIsUnchanged() {
+    const auto usage = Compile({FlatAtomicAddU32, FlatAtomicOperands});
+    Require(usage.elects == 0, "a program with only a 32-bit flat atomic got a workgroup lock: elect " + std::to_string(usage.elects));
+}
+
 void Check32BitOnlyIsUnchanged() {
     const auto add = Compile({DsAddU32Hi, DsOperand32});
     Require(add.elects == 0 && add.exchanges == 0 && add.releases == 0 && add.adds == 1, "a program with only ds_add_u32 got a workgroup lock: elect " + std::to_string(add.elects) + ", lock acquire " + std::to_string(add.exchanges) + ", lock release " + std::to_string(add.releases) + ", native add " + std::to_string(add.adds));
@@ -120,6 +132,8 @@ int main() {
         Check64BitOnlyLocks();
         Check32BitTakesLockWith64Bit();
         CheckOtherUpdatePathTakesLock();
+        CheckFlatAtomicTakesLockWith64Bit();
+        CheckFlatAtomicOnlyIsUnchanged();
         Check32BitOnlyIsUnchanged();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "SpirvLdsAtomicLock: %s\n", error.what());
