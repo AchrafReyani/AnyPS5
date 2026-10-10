@@ -3714,7 +3714,7 @@ void cmaskPassTests(const Device& device, Recorder& recorder) {
     const auto address = reinterpret_cast<std::uint64_t>(block);
     {
         GuestAllocations::Mutation mutation;
-        mutation.Add(block, bytes, true, true);
+        mutation.Add(block, bytes, true, true, true);
     }
     struct Release {
         const Context& context;
