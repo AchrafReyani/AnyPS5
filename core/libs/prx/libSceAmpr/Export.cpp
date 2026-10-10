@@ -937,13 +937,13 @@ void APS5_VABI _Lock_shared_ptr_spin_lock_nid_postfix(void) {
     while (sharedPtrSpinLock.test_and_set(std::memory_order_acquire)) std::this_thread::yield();
 }
 
-void APS5_VABI _Thrd_sleep_nid_postfix(const Xtime* target) {
+int APS5_VABI _Thrd_sleep_nid_postfix(const Xtime* target, Xtime*) {
     if (!target) APS5_INVALID_ARG_EX;
     const auto deadline = XtimeDeadline(*target);
     for (;;) {
         KernelTimespec now{};
         if (clock_gettime_nid_postfix(GuestClockRealtime, &now) != 0) throw std::runtime_error("_Thrd_sleep: reading the realtime clock failed");
-        if (now.tv_sec > deadline.tv_sec || (now.tv_sec == deadline.tv_sec && now.tv_nsec >= deadline.tv_nsec)) return;
+        if (now.tv_sec > deadline.tv_sec || (now.tv_sec == deadline.tv_sec && now.tv_nsec >= deadline.tv_nsec)) return 0;
         KernelTimespec remaining{deadline.tv_sec - now.tv_sec, deadline.tv_nsec - now.tv_nsec};
         if (remaining.tv_nsec < 0) {
             remaining.tv_nsec += NanosPerSecond;
