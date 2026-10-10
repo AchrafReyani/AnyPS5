@@ -143,8 +143,13 @@ if(BUILD_TESTING)
     set_tests_properties(autorun_exit_status PROPERTIES TIMEOUT 20)
     add_test_executable(cli_args_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/cli/tests/CliArgsTests.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/cli/src/CliArgs.cpp)
-    target_include_directories(cli_args_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cli/include)
+        ${CMAKE_CURRENT_SOURCE_DIR}/cli/src/CliArgs.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/io/src/NativePath.cpp)
+    target_include_directories(cli_args_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/cli/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/io/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/domain/include
+    )
     add_test(NAME cli_args COMMAND cli_args_tests)
     add_test_executable(buffer_bounds_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/io/tests/BufferBoundsTests.cpp

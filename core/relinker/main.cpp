@@ -204,7 +204,8 @@ int wmain(const int argc, wchar_t* argv[]) {
     try {
         std::vector<std::string> arguments;
         arguments.reserve(static_cast<std::size_t>(argc));
-        for (int index = 0; index < argc; ++index) arguments.push_back(Utf8Argument(argv[index]));
+        arguments.emplace_back();
+        for (int index = 1; index < argc; ++index) arguments.push_back(Utf8Argument(argv[index]));
         std::vector<char*> pointers;
         pointers.reserve(arguments.size() + 1);
         for (auto& argument : arguments) pointers.push_back(argument.data());
