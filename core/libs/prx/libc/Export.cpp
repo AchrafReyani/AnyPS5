@@ -33,15 +33,7 @@ std::uint64_t APS5_VABI libcCyberUnknown02(void) {
     return 0;
 }
 
-std::uint64_t APS5_VABI _Mtx_destroy_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 
-std::uint64_t APS5_VABI _Cnd_destroy_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 
 APS5_EXPORT("H+8UBOwfScI", libcCyberUnknown08);
 std::uint64_t APS5_VABI libcCyberUnknown08(void) {
@@ -49,33 +41,9 @@ std::uint64_t APS5_VABI libcCyberUnknown08(void) {
     return 0;
 }
 
-std::uint64_t APS5_VABI _Cnd_init_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 
-std::uint64_t APS5_VABI _Cnd_broadcast_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 
-std::uint64_t APS5_VABI _Mtx_init_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 
-std::uint64_t APS5_VABI _Mtx_unlock_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 
-std::uint64_t APS5_VABI _Mtx_lock_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 
-std::uint64_t APS5_VABI _Cnd_wait_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
-}
 }
