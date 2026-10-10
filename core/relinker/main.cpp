@@ -190,10 +190,12 @@ int Run(const int argc, char* argv[]) {
 #ifdef _WIN32
 
 std::string Utf8Argument(const wchar_t* argument) {
-    const int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, argument, static_cast<int>(wcslen(argument)), nullptr, 0, nullptr, nullptr);
+    const std::size_t argumentSize = std::wcslen(argument);
+    if (argumentSize == 0) return {};
+    const int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, argument, static_cast<int>(argumentSize), nullptr, 0, nullptr, nullptr);
     if (size <= 0) throw std::runtime_error("Cannot encode the command line as UTF-8");
     std::string utf8(static_cast<std::size_t>(size), '\0');
-    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, argument, static_cast<int>(wcslen(argument)), utf8.data(), size, nullptr, nullptr) != size)
+    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, argument, static_cast<int>(argumentSize), utf8.data(), size, nullptr, nullptr) != size)
         throw std::runtime_error("Cannot encode the command line as UTF-8");
     return utf8;
 }
