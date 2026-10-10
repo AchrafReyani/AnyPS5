@@ -313,6 +313,7 @@ int APS5_VABI dup_nid_postfix(int d) {
     if (duplicate < 0) return PosixFailure(SceErrorFromErrno(errno) & 0xffff);
     if (duplicate >= GuestSockets::FirstDescriptor)
         throw std::runtime_error(std::string(__func__) + ": host descriptor reached the guest socket range");
+    if (File::IsRandomDevice(d)) File::RememberRandomDevice(duplicate);
     return duplicate;
 }
 
@@ -327,16 +328,27 @@ int APS5_VABI dup2_nid_postfix(int from, int to) {
     }
     if (socketTo)
         throw std::runtime_error(std::string(__func__) + ": moving host descriptor " + std::to_string(from) + " into the guest socket range is not supported");
+    const bool sourceIsRandom = File::IsRandomDevice(from);
 #ifdef _WIN32
     if (WithoutParameterHandler([from] { return ::_get_osfhandle(from) == -1 ? -1 : 0; }) != 0) return PosixFailure(GUEST_EBADF);
     if (from == to) return to;
     RejectDirectoryDuplicate(from, __func__);
     if (WithoutParameterHandler([from, to] { return ::_dup2(from, to); }) != 0) return PosixFailure(SceErrorFromErrno(errno) & 0xffff);
     File::ForgetDirectoryDescriptor(to);
+    File::ForgetFileLock(to);
+    File::ForgetRandomDevice(to);
+    if (sourceIsRandom) File::RememberRandomDevice(to);
     return to;
 #else
+    if (from == to) {
+        if (::fcntl(from, F_GETFL) < 0) return PosixFailure(GUEST_EBADF);
+        return to;
+    }
     const int result = ::dup2(from, to);
-    return result < 0 ? PosixFailure(SceErrorFromErrno(errno) & 0xffff) : result;
+    if (result < 0) return PosixFailure(SceErrorFromErrno(errno) & 0xffff);
+    File::ForgetRandomDevice(to);
+    if (sourceIsRandom) File::RememberRandomDevice(to);
+    return result;
 #endif
 }
 
