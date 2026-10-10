@@ -34,7 +34,12 @@ def main():
 
         run("absolute", ["--sce-module-path", str(parent)], artifact=True)
         run("relative", ["--sce-module-path", "module root"], artifact=True)
-        run("default", [], cwd=parent, artifact=True)
+        inputModules = source.parent / "sce_module"
+        inputModules.mkdir()
+        (inputModules / "needed.prx").write_bytes(guest_fixture(PLAIN_SITE))
+        run("default", [], artifact=True)
+        (inputModules / "needed.prx").unlink()
+        inputModules.rmdir()
         run("explicit-dot", ["--sce-module-path", "."], cwd=parent, artifact=True)
         run("skip", ["--skip-sce-module"])
         run("conflict", ["--sce-module-path", str(parent), "--skip-sce-module"], error="conflicts with --skip-sce-module")
@@ -46,7 +51,7 @@ def main():
         run("missing-parent", ["--sce-module-path", "absent"], error="parent directory does not exist")
         run("file-parent", ["--sce-module-path", str(source)], error="parent path is not a directory")
         run("wrong-level", ["--sce-module-path", str(modules)], error="--skip-sce-module")
-        run("module-directory-is-file", [], error="Guest module path is not a directory")
+        run("module-directory-is-file", ["--sce-module-path", "."], error="Guest module path is not a directory")
         (parent / "sce_modules").mkdir()
         run("ambiguous", ["--sce-module-path", str(parent)], error="Both sce_module and sce_modules")
         (parent / "sce_modules").rmdir()

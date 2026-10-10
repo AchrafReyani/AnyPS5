@@ -1,4 +1,5 @@
 #include <Cli.hpp>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -85,6 +86,8 @@ Args ParseArgs(int argc, char* argv[]) {
     if (!args.showHelp && (args.inputPath.empty() || args.outputPath.empty()))
         throw std::runtime_error(Usage());
 
+
+    if (!sceModulePathSpecified && !args.skipSceModule && !args.inputPath.empty()) args.sceModulePath = std::filesystem::absolute(args.inputPath).parent_path().string();
 
     return args;
 }
