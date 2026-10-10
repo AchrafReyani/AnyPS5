@@ -31,6 +31,7 @@ static void RequireThrows(TCall call) {
 }
 
 constexpr int success = 0;
+constexpr int error = 4;
 constexpr int busy = 3;
 constexpr int plain = 0x01;
 constexpr int tryable = 0x02;
@@ -48,9 +49,9 @@ static void MutexBasics() {
     Require(_Mtx_lock_nid_postfix(&mutex) == success);
     Require(_Mtx_lock_nid_postfix(&mutex) == busy);
     RequireThrows<std::logic_error>([&] { _Mtx_destroy_nid_postfix(&mutex); });
-    std::thread([&] { RequireThrows<std::logic_error>([&] { _Mtx_unlock_nid_postfix(&mutex); }); }).join();
+    std::thread([&] { Require(_Mtx_unlock_nid_postfix(&mutex) == error); }).join();
     Require(_Mtx_unlock_nid_postfix(&mutex) == success);
-    RequireThrows<std::logic_error>([&] { _Mtx_unlock_nid_postfix(&mutex); });
+    Require(_Mtx_unlock_nid_postfix(&mutex) == error);
     void* invalidMutex = nullptr;
     RequireThrows<std::invalid_argument>([&] { _Mtx_lock_nid_postfix(&invalidMutex); });
     _Mtx_destroy_nid_postfix(&mutex);
@@ -142,10 +143,10 @@ static void ConditionBroadcast() {
     Require(woken == 2);
     Require(_Cnd_broadcast_nid_postfix(&condition) == success);
 
-    RequireThrows<std::logic_error>([&] { _Cnd_wait_nid_postfix(&condition, &mutex); });
+    Require(_Cnd_wait_nid_postfix(&condition, &mutex) == error);
     void* recursiveMutex = CreateMutex(tryable | recursive);
     Require(_Mtx_lock_nid_postfix(&recursiveMutex) == success && _Mtx_lock_nid_postfix(&recursiveMutex) == success);
-    RequireThrows<std::logic_error>([&] { _Cnd_wait_nid_postfix(&condition, &recursiveMutex); });
+    Require(_Cnd_wait_nid_postfix(&condition, &recursiveMutex) == error);
     Require(_Mtx_unlock_nid_postfix(&recursiveMutex) == success && _Mtx_unlock_nid_postfix(&recursiveMutex) == success);
     _Mtx_destroy_nid_postfix(&recursiveMutex);
 

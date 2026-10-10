@@ -118,7 +118,7 @@ int APS5_VABI _Mtx_lock_nid_postfix(void** handle) {
 int APS5_VABI _Mtx_unlock_nid_postfix(void** handle) {
     auto* mutex = ResolveMutex(handle, "_Mtx_unlock");
     if (!IsOwnedByCaller(mutex))
-        throw std::logic_error("_Mtx_unlock: mutex is not owned by the calling thread");
+        return threadError;
     if (--mutex->count == 0) {
         mutex->owner.store(std::thread::id{}, std::memory_order_release);
         mutex->native.unlock();
@@ -151,9 +151,9 @@ int APS5_VABI _Cnd_wait_nid_postfix(void** conditionHandle, void** mutexHandle) 
     auto* condition = ResolveCondition(conditionHandle, "_Cnd_wait");
     auto* mutex = ResolveMutex(mutexHandle, "_Cnd_wait");
     if (!IsOwnedByCaller(mutex))
-        throw std::logic_error("_Cnd_wait: mutex is not owned by the calling thread");
+        return threadError;
     if (mutex->count != 1)
-        throw std::logic_error("_Cnd_wait: recursive mutex is locked more than once");
+        return threadError;
     mutex->count = 0;
     mutex->owner.store(std::thread::id{}, std::memory_order_release);
     std::unique_lock lock(mutex->native, std::adopt_lock);
