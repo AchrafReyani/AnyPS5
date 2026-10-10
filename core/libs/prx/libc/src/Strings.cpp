@@ -443,6 +443,11 @@ unsigned long long APS5_VABI wcstoull_nid_postfix(const char16_t* str, char16_t*
     return ParseAsciiPrefix(str, endptr, [base](const char* text, char** end) { return StopAtPrefixLetter_nid_no_patch(text, end, base) ? 0ULL : std::strtoull(text, end, base); });
 }
 
+std::uint64_t APS5_VABI _WStoul_nid_postfix(const char16_t* str, char16_t** endptr, int base) {
+    if (base < 0 || base == 1 || base > 36) throw std::invalid_argument("_WStoul: unsupported base " + std::to_string(base));
+    return wcstoul_nid_postfix(str, endptr, base);
+}
+
 int APS5_VABI wcscoll_nid_postfix(const char16_t* first, const char16_t* second) {
     return wcscmp_nid_postfix(first, second);
 }

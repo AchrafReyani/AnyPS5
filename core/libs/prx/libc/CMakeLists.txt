@@ -28,6 +28,7 @@ target_sources(libc PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/JumpBuffer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Formatting.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/FormattingWide.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ScanningWide.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/RuntimeSupport.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/LocaleSupport.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Process.cpp
@@ -115,6 +116,15 @@ if(BUILD_TESTING)
     add_test(NAME guest_wide_strings COMMAND guest_wide_string_tests)
     if(WIN32)
         set_tests_properties(guest_wide_strings PROPERTIES ENVIRONMENT_MODIFICATION
+            "PATH=path_list_prepend:$<TARGET_FILE_DIR:libc>")
+    endif()
+    add_test_executable(guest_wide_conversion_tests ${LIBS_INCLUDE_DIR}/tests/GuestWideConversion.cpp)
+    target_include_directories(guest_wide_conversion_tests PRIVATE ${LIBS_INCLUDE_DIR})
+    target_link_libraries(guest_wide_conversion_tests PRIVATE libc)
+    configure_windows_unwind(guest_wide_conversion_tests)
+    add_test(NAME guest_wide_conversion COMMAND guest_wide_conversion_tests)
+    if(WIN32)
+        set_tests_properties(guest_wide_conversion PROPERTIES ENVIRONMENT_MODIFICATION
             "PATH=path_list_prepend:$<TARGET_FILE_DIR:libc>")
     endif()
     add_test_executable(guest_character_tests ${LIBS_INCLUDE_DIR}/tests/GuestCharacter.cpp)
