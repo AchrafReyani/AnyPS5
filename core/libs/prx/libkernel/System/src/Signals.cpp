@@ -82,10 +82,17 @@ bool Install(int guest, const GuestSigaction& action) {
 
 namespace {
 constexpr int GuestSigalrm = 14;
-std::mutex alarmLock;
-std::condition_variable alarmChanged;
-std::optional<std::chrono::steady_clock::time_point> alarmDeadline;
-bool alarmThreadStarted = false;
+struct AlarmState {
+    std::mutex lock;
+    std::condition_variable changed;
+    std::optional<std::chrono::steady_clock::time_point> deadline;
+    bool threadStarted = false;
+};
+
+AlarmState& Alarms() {
+    static auto* state = new AlarmState();
+    return *state;
+}
 
 void ExpireAlarm() {
     std::uintptr_t handler = 0;
@@ -103,15 +110,16 @@ void ExpireAlarm() {
 }
 
 void RunAlarms() {
-    std::unique_lock lock(alarmLock);
+    auto& alarms = Alarms();
+    std::unique_lock lock(alarms.lock);
     for (;;) {
-        if (!alarmDeadline) {
-            alarmChanged.wait(lock);
+        if (!alarms.deadline) {
+            alarms.changed.wait(lock);
             continue;
         }
-        const auto deadline = *alarmDeadline;
-        if (alarmChanged.wait_until(lock, deadline) != std::cv_status::timeout || alarmDeadline != deadline) continue;
-        alarmDeadline.reset();
+        const auto deadline = *alarms.deadline;
+        if (alarms.changed.wait_until(lock, deadline) != std::cv_status::timeout || alarms.deadline != deadline) continue;
+        alarms.deadline.reset();
         lock.unlock();
         ExpireAlarm();
         lock.lock();
@@ -120,20 +128,21 @@ void RunAlarms() {
 }
 
 extern "C" unsigned int APS5_VABI GuestAlarm_nid_no_patch(unsigned int seconds) {
-    std::lock_guard lock(alarmLock);
+    auto& alarms = Alarms();
+    std::lock_guard lock(alarms.lock);
     const auto now = std::chrono::steady_clock::now();
     unsigned int remaining = 0;
-    if (alarmDeadline && *alarmDeadline > now) {
-        const auto micros = std::chrono::duration_cast<std::chrono::microseconds>(*alarmDeadline - now).count();
+    if (alarms.deadline && *alarms.deadline > now) {
+        const auto micros = std::chrono::duration_cast<std::chrono::microseconds>(*alarms.deadline - now).count();
         remaining = static_cast<unsigned int>((micros + 999999) / 1000000);
     }
-    if (seconds == 0) alarmDeadline.reset();
-    else alarmDeadline = now + std::chrono::seconds(seconds);
-    if (!alarmThreadStarted) {
+    if (seconds == 0) alarms.deadline.reset();
+    else alarms.deadline = now + std::chrono::seconds(seconds);
+    if (!alarms.threadStarted) {
         std::thread(RunAlarms).detach();
-        alarmThreadStarted = true;
+        alarms.threadStarted = true;
     }
-    alarmChanged.notify_all();
+    alarms.changed.notify_all();
     return remaining;
 }
 
