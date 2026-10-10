@@ -107,8 +107,8 @@ int APS5_VABI _Mtx_lock_nid_postfix(void** handle) {
     }
     try {
         mutex->native.lock();
-    } catch (const std::system_error&) {
-        return threadError;
+    } catch (const std::system_error& error) {
+        return error.code() == std::errc::resource_deadlock_would_occur ? threadBusy : threadError;
     }
     mutex->owner.store(self, std::memory_order_release);
     mutex->count = 1;
