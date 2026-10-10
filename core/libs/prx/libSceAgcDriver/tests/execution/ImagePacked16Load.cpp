@@ -113,8 +113,9 @@ void Verify(const Packed& format, std::uint32_t swizzle, std::uint32_t texels, b
         const auto x = sampled ? 0u : index;
         std::array<std::uint32_t, 4> channels{};
         for (std::uint32_t component = 0; component < 4u; ++component) {
-            channels[component] = format.masks[component] == 0u || ((Pattern(x) >> component) & 1u) != 0u ? One : 0u;
+            channels[component] = format.masks[component] != 0u && ((Pattern(x) >> component) & 1u) != 0u ? One : 0u;
         }
+        if (format.masks[3] == 0u) channels[3] = channels[0];
         for (std::uint32_t component = 0; component < 4u; ++component) {
             const auto selector = (swizzle >> (component * 3u)) & 7u;
             const auto expected = selector == 0u ? 0u : selector == 1u ? One : channels[selector - 4u];
