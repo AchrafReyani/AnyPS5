@@ -2,6 +2,7 @@
 #include <elfpatcher/general/GuestModuleWriter.hpp>
 #include <codegen/IAmd64OnlyConverter.hpp>
 #include <io/FileReader.hpp>
+#include <io/NativePath.hpp>
 #include <io/BufferUtils.hpp>
 #include <algorithm>
 #include <fstream>
@@ -119,7 +120,7 @@ std::vector<GuestArtifact> GuestModuleBuilder::Build(const std::filesystem::path
     if (std::filesystem::exists(outputPath)) {
         for (const auto& path : paths)
             if (std::filesystem::equivalent(path, outputPath))
-                throw Domain::RelinkerException("Executable output would overwrite an input module: " + outputPath.string());
+                throw Domain::RelinkerException("Executable output would overwrite an input module: " + Io::Utf8Path(outputPath));
     }
     std::map<std::string, std::vector<std::size_t>> exports;
     std::map<std::string, std::set<std::size_t>> sharedExports;
