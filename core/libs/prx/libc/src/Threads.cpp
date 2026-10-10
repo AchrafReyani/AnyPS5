@@ -17,9 +17,6 @@ constexpr int threadNomem = 1;
 constexpr int threadBusy = 3;
 constexpr int threadError = 4;
 
-constexpr int mutexPlain = 0x01;
-constexpr int mutexTry = 0x02;
-constexpr int mutexTimed = 0x04;
 constexpr int mutexRecursive = 0x100;
 
 constexpr std::uint64_t mutexTag = 0x5854'4D5F'4D54'5844ull;
@@ -71,8 +68,6 @@ extern "C" {
 int APS5_VABI _Mtx_init_nid_postfix(void** handle, int type) {
     if (!handle)
         throw std::invalid_argument("_Mtx_init: null handle pointer");
-    if ((type & ~(mutexPlain | mutexTry | mutexTimed | mutexRecursive)) != 0 || (type & (mutexPlain | mutexTry | mutexTimed)) == 0)
-        throw std::invalid_argument("_Mtx_init: unsupported mutex type " + std::to_string(type));
     *handle = nullptr;
     auto* mutex = new (std::nothrow) DinkumwareMutex();
     if (!mutex)
@@ -99,7 +94,7 @@ int APS5_VABI _Mtx_lock_nid_postfix(void** handle) {
     auto* mutex = ResolveMutex(handle, "_Mtx_lock");
     const auto self = std::this_thread::get_id();
     if (mutex->owner.load(std::memory_order_acquire) == self) {
-        if ((mutex->type & ~mutexRecursive) != mutexPlain && (mutex->type & mutexRecursive) == 0)
+        if ((mutex->type & mutexRecursive) == 0)
             return threadBusy;
         if (mutex->count == std::numeric_limits<int>::max())
             throw std::overflow_error("_Mtx_lock: recursive lock count overflow");
@@ -119,7 +114,7 @@ int APS5_VABI _Mtx_lock_nid_postfix(void** handle) {
 int APS5_VABI _Mtx_unlock_nid_postfix(void** handle) {
     auto* mutex = ResolveMutex(handle, "_Mtx_unlock");
     if (!IsOwnedByCaller(mutex))
-        return threadError;
+        return threadSuccess;
     if (--mutex->count == 0) {
         mutex->owner.store(std::thread::id{}, std::memory_order_release);
         mutex->native.unlock();
@@ -153,9 +148,9 @@ int APS5_VABI _Cnd_wait_nid_postfix(void** conditionHandle, void** mutexHandle) 
     auto* condition = ResolveCondition(conditionHandle, "_Cnd_wait");
     auto* mutex = ResolveMutex(mutexHandle, "_Cnd_wait");
     if (!IsOwnedByCaller(mutex))
-        return threadError;
+        return threadSuccess;
     if (mutex->count != 1)
-        return threadError;
+        return threadSuccess;
     mutex->count = 0;
     mutex->owner.store(std::thread::id{}, std::memory_order_release);
     std::unique_lock lock(mutex->native, std::adopt_lock);
@@ -165,7 +160,7 @@ int APS5_VABI _Cnd_wait_nid_postfix(void** conditionHandle, void** mutexHandle) 
         lock.release();
         mutex->owner.store(std::this_thread::get_id(), std::memory_order_release);
         mutex->count = 1;
-        return threadError;
+        throw;
     }
     lock.release();
     mutex->owner.store(std::this_thread::get_id(), std::memory_order_release);

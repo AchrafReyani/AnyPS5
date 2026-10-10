@@ -31,7 +31,6 @@ static void RequireThrows(TCall call) {
 }
 
 constexpr int success = 0;
-constexpr int error = 4;
 constexpr int busy = 3;
 constexpr int plain = 0x01;
 constexpr int tryable = 0x02;
@@ -49,11 +48,16 @@ static void MutexBasics() {
     Require(_Mtx_lock_nid_postfix(&mutex) == success);
     Require(_Mtx_lock_nid_postfix(&mutex) == busy);
     RequireThrows<std::logic_error>([&] { _Mtx_destroy_nid_postfix(&mutex); });
-    std::thread([&] { Require(_Mtx_unlock_nid_postfix(&mutex) == error); }).join();
+    std::thread([&] { Require(_Mtx_unlock_nid_postfix(&mutex) == success); }).join();
     Require(_Mtx_unlock_nid_postfix(&mutex) == success);
-    Require(_Mtx_unlock_nid_postfix(&mutex) == error);
+    Require(_Mtx_unlock_nid_postfix(&mutex) == success);
     void* invalidMutex = nullptr;
     RequireThrows<std::invalid_argument>([&] { _Mtx_lock_nid_postfix(&invalidMutex); });
+    void* foreignCondition = nullptr;
+    Require(_Cnd_init_nid_postfix(&foreignCondition) == success && foreignCondition != nullptr);
+    void* foreignMutex = foreignCondition;
+    RequireThrows<std::invalid_argument>([&] { _Mtx_lock_nid_postfix(&foreignMutex); });
+    _Cnd_destroy_nid_postfix(&foreignCondition);
     _Mtx_destroy_nid_postfix(&mutex);
     Require(mutex == nullptr);
     RequireThrows<std::invalid_argument>([&] { _Mtx_lock_nid_postfix(&mutex); });
@@ -62,8 +66,8 @@ static void MutexBasics() {
     RequireThrows<std::invalid_argument>([] { _Mtx_destroy_nid_postfix(nullptr); });
 
     void* plainMutex = CreateMutex(plain);
-    Require(_Mtx_lock_nid_postfix(&plainMutex) == success && _Mtx_lock_nid_postfix(&plainMutex) == success);
-    Require(_Mtx_unlock_nid_postfix(&plainMutex) == success && _Mtx_unlock_nid_postfix(&plainMutex) == success);
+    Require(_Mtx_lock_nid_postfix(&plainMutex) == success && _Mtx_lock_nid_postfix(&plainMutex) == busy);
+    Require(_Mtx_unlock_nid_postfix(&plainMutex) == success);
     _Mtx_destroy_nid_postfix(&plainMutex);
 
     void* timedMutex = CreateMutex(timed | tryable);
@@ -71,11 +75,16 @@ static void MutexBasics() {
     Require(_Mtx_unlock_nid_postfix(&timedMutex) == success);
     _Mtx_destroy_nid_postfix(&timedMutex);
 
-    void* untouched = reinterpret_cast<void*>(std::uintptr_t{1});
-    RequireThrows<std::invalid_argument>([&] { _Mtx_init_nid_postfix(&untouched, 0); });
-    RequireThrows<std::invalid_argument>([&] { _Mtx_init_nid_postfix(&untouched, recursive); });
-    RequireThrows<std::invalid_argument>([&] { _Mtx_init_nid_postfix(&untouched, tryable | 0x8); });
-    Require(untouched == reinterpret_cast<void*>(std::uintptr_t{1}));
+    void* defaultMutex = nullptr;
+    Require(_Mtx_init_nid_postfix(&defaultMutex, 0) == success && defaultMutex != nullptr);
+    Require(_Mtx_lock_nid_postfix(&defaultMutex) == success && _Mtx_lock_nid_postfix(&defaultMutex) == busy);
+    Require(_Mtx_unlock_nid_postfix(&defaultMutex) == success);
+    _Mtx_destroy_nid_postfix(&defaultMutex);
+    void* unknownBitsMutex = nullptr;
+    Require(_Mtx_init_nid_postfix(&unknownBitsMutex, tryable | 0x8) == success && unknownBitsMutex != nullptr);
+    Require(_Mtx_lock_nid_postfix(&unknownBitsMutex) == success && _Mtx_lock_nid_postfix(&unknownBitsMutex) == busy);
+    Require(_Mtx_unlock_nid_postfix(&unknownBitsMutex) == success);
+    _Mtx_destroy_nid_postfix(&unknownBitsMutex);
     RequireThrows<std::invalid_argument>([] { _Mtx_init_nid_postfix(nullptr, tryable); });
     RequireThrows<std::invalid_argument>([] { _Mtx_lock_nid_postfix(nullptr); });
     RequireThrows<std::invalid_argument>([] { _Mtx_unlock_nid_postfix(nullptr); });
@@ -145,10 +154,10 @@ static void ConditionBroadcast() {
     Require(woken == 2);
     Require(_Cnd_broadcast_nid_postfix(&condition) == success);
 
-    Require(_Cnd_wait_nid_postfix(&condition, &mutex) == error);
+    Require(_Cnd_wait_nid_postfix(&condition, &mutex) == success);
     void* recursiveMutex = CreateMutex(tryable | recursive);
     Require(_Mtx_lock_nid_postfix(&recursiveMutex) == success && _Mtx_lock_nid_postfix(&recursiveMutex) == success);
-    Require(_Cnd_wait_nid_postfix(&condition, &recursiveMutex) == error);
+    Require(_Cnd_wait_nid_postfix(&condition, &recursiveMutex) == success);
     Require(_Mtx_unlock_nid_postfix(&recursiveMutex) == success && _Mtx_unlock_nid_postfix(&recursiveMutex) == success);
     _Mtx_destroy_nid_postfix(&recursiveMutex);
 
