@@ -591,6 +591,19 @@ void stridedOverhangTests(const Context& context, const BdaTestAccess& access) {
         Require(access.descriptor(6).range == allocation, "a strided buffer's rounded-up last record was bound past its allocation");
         resources.WriteBack();
     }
+    {
+        GuestAllocations::Mutation mutation;
+        mutation.Add(block + allocation, allocation, true, false, true);
+    }
+    {
+        ShaderResources resources(context, compiled);
+        Require(access.descriptor(6).range == allocation, "a strided buffer's rounded-up last record was bound into the next allocation");
+        resources.WriteBack();
+    }
+    {
+        GuestAllocations::Mutation mutation;
+        mutation.Remove(block + allocation);
+    }
     buffer.guestDescriptor[2] = records - 1;
     shader.bindings = {buffer};
     {
