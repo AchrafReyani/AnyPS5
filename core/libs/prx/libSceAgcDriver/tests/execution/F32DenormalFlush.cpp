@@ -253,6 +253,121 @@ constexpr const char* TinyNames[8] = {
     "v_mul_f32 v17, -v4, v5"
 };
 
+alignas(256) constexpr std::array<std::uint32_t, 28> MixedTinyCode{
+    0x34020084u, 0x34040086u, 0xe0381000u, 0x80000401u, 0xbf8c3f70u, 0xcc20000au, 0x141a0b04u, 0xcc20000bu,
+    0x0c1a0905u, 0xcc20100cu, 0x141a0b04u, 0xcc20080du, 0x0c1a0905u, 0xcc20400eu, 0x141e0b04u, 0xcc20400fu,
+    0x0c1e0905u, 0x7e1002ffu, 0x3f7ffffeu, 0xcc204010u, 0x041e1104u, 0xcc206011u, 0x041e1104u, 0xe0781000u,
+    0x80010a02u, 0xe0781010u, 0x80010e02u, 0xbf810000u,
+};
+
+constexpr std::uint32_t MixedTinyRows[Threads][Inputs] = {
+    {0x00801002u, 0x00003bffu, 0x00000000u, 0x00000000u},
+    {0x80801002u, 0x00003bffu, 0x80000000u, 0x80008000u},
+    {0x00801000u, 0x3bff3bffu, 0x00000000u, 0x00000000u},
+    {0x00801001u, 0x3bff3bffu, 0x00000000u, 0x00000000u},
+    {0x00801002u, 0x3bff3bffu, 0x00000000u, 0x00000000u},
+    {0x00801003u, 0x3bff3bffu, 0x00000000u, 0x00000000u},
+    {0x80801000u, 0x3bff3bffu, 0x80000000u, 0x80008000u},
+    {0x80801001u, 0x3bff3bffu, 0x80000000u, 0x80008000u},
+    {0x80801002u, 0x3bff3bffu, 0x80000000u, 0x80008000u},
+    {0x80801003u, 0x3bff3bffu, 0x80000000u, 0x80008000u},
+    {0x00801000u, 0xbbffbbffu, 0x80000000u, 0x80008000u},
+    {0x00801001u, 0xbbffbbffu, 0x80000000u, 0x80008000u},
+    {0x00801002u, 0xbbffbbffu, 0x80000000u, 0x80008000u},
+    {0x00801003u, 0xbbffbbffu, 0x80000000u, 0x80008000u},
+    {0x00800001u, 0x3bff3bffu, 0x00000000u, 0x00000000u},
+    {0x80800001u, 0x3bff3bffu, 0x80000000u, 0x80008000u},
+};
+constexpr std::uint32_t MixedTinyExpected[16][3] = {
+    {0x00800000u, 0x00000000u, 0x00801001u},
+    {0x80800000u, 0x80000000u, 0x80801001u},
+    {0x00000000u, 0x00000000u, 0x00800fffu},
+    {0x00000000u, 0x00000000u, 0x00801000u},
+    {0x00800000u, 0x00800000u, 0x00801001u},
+    {0x00800001u, 0x00800001u, 0x00801002u},
+    {0x80000000u, 0x80000000u, 0x80800fffu},
+    {0x80000000u, 0x80000000u, 0x80801000u},
+    {0x80800000u, 0x80800000u, 0x80801001u},
+    {0x80800001u, 0x80800001u, 0x80801002u},
+    {0x80000000u, 0x80000000u, 0x00800fffu},
+    {0x80000000u, 0x80000000u, 0x00801000u},
+    {0x80800000u, 0x80800000u, 0x00801001u},
+    {0x80800001u, 0x80800001u, 0x00801002u},
+    {0x00000000u, 0x00000000u, 0x00800000u},
+    {0x80000000u, 0x80000000u, 0x80800000u},
+};
+constexpr std::uint32_t MixedTinyDirected[3][16][2] = {
+    {
+        {0x00800000u, 0x00000000u},
+        {0x80000000u, 0x80000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00800000u, 0x00800000u},
+        {0x00800001u, 0x00800001u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80800000u, 0x80800000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80800000u, 0x80800000u},
+        {0x00000000u, 0x00000000u},
+        {0x80000000u, 0x80000000u},
+    },
+    {
+        {0x00000000u, 0x00000000u},
+        {0x80800000u, 0x80000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00800000u, 0x00800000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80800000u, 0x80800000u},
+        {0x80800001u, 0x80800001u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80800000u, 0x80800000u},
+        {0x80800001u, 0x80800001u},
+        {0x00000000u, 0x00000000u},
+        {0x80000000u, 0x80000000u},
+    },
+    {
+        {0x00000000u, 0x00000000u},
+        {0x80000000u, 0x80000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00000000u, 0x00000000u},
+        {0x00800000u, 0x00800000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80800000u, 0x80800000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80000000u, 0x80000000u},
+        {0x80800000u, 0x80800000u},
+        {0x00000000u, 0x00000000u},
+        {0x80000000u, 0x80000000u},
+    },
+};
+constexpr std::uint32_t MixedAddendDirected[3][2] = {
+    {0x00800000u, 0x80000000u},
+    {0x00000000u, 0x80800000u},
+    {0x00000000u, 0x80000000u},
+};
+constexpr const char* MixedTinyNames[8] = {
+    "v_fma_mix_f32 v10, v4, v5, v6 op_sel_hi:[0,1,0]",
+    "v_fma_mix_f32 v11, v5, v4, v6 op_sel_hi:[1,0,0]",
+    "v_fma_mix_f32 v12, v4, v5, v6 op_sel:[0,1,0] op_sel_hi:[0,1,0]",
+    "v_fma_mix_f32 v13, v5, v4, v6 op_sel:[1,0,0] op_sel_hi:[1,0,0]",
+    "v_fma_mix_f32 v14, v4, v5, v7 op_sel_hi:[0,1,1]",
+    "v_fma_mix_f32 v15, v5, v4, v7 op_sel_hi:[1,0,1]",
+    "v_fma_mix_f32 v16, v4, v8, v7 op_sel_hi:[0,0,1]",
+    "v_fma_mix_f32 v17, v4, v8, v7 op_sel:[0,0,1] op_sel_hi:[0,0,1]",
+};
+
 std::array<std::uint32_t, 4> BufferDescriptor(const void* data, std::uint32_t bytes) {
     const auto address = reinterpret_cast<std::uintptr_t>(data);
     return {static_cast<std::uint32_t>(address), static_cast<std::uint32_t>((address >> 32u) & 0xffffu), bytes, 0x31016facu};
@@ -315,6 +430,25 @@ void CheckTiny(const char* mode) {
     }
 }
 
+void CheckMixedTiny(const std::string& mode, std::uint32_t round = 0u) {
+    for (std::uint32_t tid = 0; tid < std::size(MixedTinyExpected); ++tid) {
+        for (std::uint32_t i = 0; i < std::size(MixedTinyNames); ++i) {
+            const bool highFactor = i == 2u || i == 3u;
+            std::uint32_t expected = MixedTinyExpected[tid][i >= 6u ? 2u : highFactor ? 1u : 0u];
+            if (round != 0u) {
+                if (i >= 6u) {
+                    if (tid < 14u) continue;
+                    expected = MixedAddendDirected[round - 1u][tid - 14u];
+                } else {
+                    if ((MixedTinyRows[tid][0] & 0x7fffffffu) == 0x00801003u) continue;
+                    expected = MixedTinyDirected[round - 1u][tid][highFactor ? 1u : 0u];
+                }
+            }
+            Expect(tid, Output[tid * TinyResults + i], expected, (mode + " " + MixedTinyNames[i]).c_str());
+        }
+    }
+}
+
 void CheckTinyLegacy(const std::string& mode) {
     for (std::uint32_t tid = 0; tid < Threads; ++tid) {
         for (std::uint32_t i = 0; i < 2; ++i) Expect(tid, Output[tid * TinyResults + 8u + i], TinyLegacyExpected[tid], (mode + " " + TinyLegacyNames[i]).c_str());
@@ -341,6 +475,16 @@ int main() {
         Check("IEEE=0 f32 denormals flushed");
         Run(*device, ShaderRecompiler::ShaderFloatMode{0x00u, false, true, false});
         Check("IEEE=1 all denormals flushed");
+        Run(*device, std::nullopt, MixedTinyCode, MixedTinyRows);
+        CheckMixedTiny("no float mode");
+        Run(*device, ShaderRecompiler::ShaderFloatMode{0xc0u, true, false, false}, MixedTinyCode, MixedTinyRows);
+        CheckMixedTiny("IEEE=0 mixed sources");
+        Run(*device, ShaderRecompiler::ShaderFloatMode{0x00u, false, true, false}, MixedTinyCode, MixedTinyRows);
+        CheckMixedTiny("IEEE=1 mixed sources");
+        for (std::uint32_t round = 1u; round < 4u; ++round) {
+            Run(*device, ShaderRecompiler::ShaderFloatMode{0xc0u | round, true, false, false}, MixedTinyCode, MixedTinyRows);
+            CheckMixedTiny("mixed sources round mode " + std::to_string(round), round);
+        }
         Run(*device, std::nullopt, TinyCode, TinyRows);
         CheckTinyLegacy("no float mode");
         CheckTiny("no float mode");
