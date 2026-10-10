@@ -1035,7 +1035,8 @@ void TestPs5ExtendedInitLayout() {
 }
 
 void TestUnsyncedVideoKeepsUpWithAudio() {
-    AvPlayerInitData init = InitData(nullptr);
+    Events events;
+    AvPlayerInitData init = InitData(&events);
     auto* player = sceAvPlayerInit(&init);
     Check(player != nullptr, "init failed");
     Check(sceAvPlayerSetAvSyncMode(player, 1) == 0, "sync mode rejected");
