@@ -271,9 +271,11 @@ int main() {
     Require(std::filesystem::create_directory(targetDirectory));
     const auto fileLink = root / "file-link";
     const auto directoryLink = root / "directory-link";
+    const auto danglingLink = root / "dangling-link";
     Require(CreateSymbolicLinkW(fileLink.c_str(), present.c_str(), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
     Require(CreateSymbolicLinkW(directoryLink.c_str(), targetDirectory.c_str(),
         SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
+    Require(CreateSymbolicLinkW(danglingLink.c_str(), missingName.c_str(), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
     const auto checkUnsupportedLink = [](const std::filesystem::path& link) {
         FileStat untouched;
         std::memset(&untouched, 0x5a, sizeof(untouched));
@@ -292,7 +294,8 @@ int main() {
     };
     Require(checkUnsupportedLink(fileLink));
     Require(checkUnsupportedLink(directoryLink));
-    Require(std::filesystem::remove(fileLink) && std::filesystem::remove(directoryLink));
+    Require(checkUnsupportedLink(danglingLink));
+    Require(std::filesystem::remove(fileLink) && std::filesystem::remove(directoryLink) && std::filesystem::remove(danglingLink));
 #endif
     FileStat identity{};
     FileStat byDescriptor{};
