@@ -55,6 +55,8 @@ static void MutexBasics() {
     void* invalidMutex = nullptr;
     RequireThrows<std::invalid_argument>([&] { _Mtx_lock_nid_postfix(&invalidMutex); });
     _Mtx_destroy_nid_postfix(&mutex);
+    Require(mutex == nullptr);
+    RequireThrows<std::invalid_argument>([&] { _Mtx_lock_nid_postfix(&mutex); });
     void* emptyMutex = nullptr;
     _Mtx_destroy_nid_postfix(&emptyMutex);
     RequireThrows<std::invalid_argument>([] { _Mtx_destroy_nid_postfix(nullptr); });
@@ -156,6 +158,8 @@ static void ConditionBroadcast() {
     RequireThrows<std::invalid_argument>([] { _Cnd_broadcast_nid_postfix(nullptr); });
     RequireThrows<std::invalid_argument>([] { _Cnd_init_nid_postfix(nullptr); });
     _Cnd_destroy_nid_postfix(&condition);
+    Require(condition == nullptr);
+    RequireThrows<std::invalid_argument>([&] { _Cnd_broadcast_nid_postfix(&condition); });
     void* emptyCondition = nullptr;
     _Cnd_destroy_nid_postfix(&emptyCondition);
     RequireThrows<std::invalid_argument>([] { _Cnd_destroy_nid_postfix(nullptr); });

@@ -92,6 +92,7 @@ void APS5_VABI _Mtx_destroy_nid_postfix(void** handle) {
         throw std::logic_error("_Mtx_destroy: mutex destroyed while locked");
     mutex->tag = 0;
     delete mutex;
+    *handle = nullptr;
 }
 
 int APS5_VABI _Mtx_lock_nid_postfix(void** handle) {
@@ -145,6 +146,7 @@ void APS5_VABI _Cnd_destroy_nid_postfix(void** handle) {
     auto* condition = ResolveCondition(handle, "_Cnd_destroy");
     condition->tag = 0;
     delete condition;
+    *handle = nullptr;
 }
 
 int APS5_VABI _Cnd_wait_nid_postfix(void** conditionHandle, void** mutexHandle) {
