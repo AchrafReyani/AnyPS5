@@ -13,6 +13,8 @@ REGISTER = bytes.fromhex("4889f8") + b"\x0f\x05\xc3"
 SYSENTER = b"\x0f\x34\xc3"
 SYSRET = bytes.fromhex("48c7c009000000") + b"\x0f\x07\xc3"
 CLOBBERED = bytes.fromhex("48c7c009000000") + bytes.fromhex("4883c001") + b"\x0f\x05\xc3"
+PREFIXED_CONSTANT = bytes.fromhex("6648c7c009000000") + bytes.fromhex("f24989ca") + bytes.fromhex("f30f05") + b"\xc3"
+PREFIXED_CLOBBERED = bytes.fromhex("6648c7c009000000") + bytes.fromhex("664883c001") + bytes.fromhex("f30f05") + b"\xc3"
 
 
 def fixture(code):
@@ -50,12 +52,14 @@ def main():
 
         for name, code, expected in (("constant", CONSTANT, "syscall number 9"),
                                      ("unsigned", UNSIGNED, "syscall number 57"),
-                                     ("int80", INT80, "syscall number 11")):
+                                     ("int80", INT80, "syscall number 11"),
+                                     ("prefixed-constant", PREFIXED_CONSTANT, "syscall number 9")):
             if expected not in reject(name, code):
                 raise AssertionError((name, "did not report " + expected))
 
         for name, code in (("register", REGISTER), ("sysenter", SYSENTER),
-                           ("sysret", SYSRET), ("clobbered", CLOBBERED)):
+                           ("sysret", SYSRET), ("clobbered", CLOBBERED),
+                           ("prefixed-clobbered", PREFIXED_CLOBBERED)):
             stderr = reject(name, code)
             if "syscall number" in stderr:
                 raise AssertionError((name, "reported a number it cannot establish", stderr))

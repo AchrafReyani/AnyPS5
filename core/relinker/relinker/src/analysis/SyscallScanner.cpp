@@ -50,22 +50,24 @@ static ForbiddenInstruction ClassifyForbiddenInstruction(
 }
 
 static std::optional<std::uint32_t> ConstantRaxLoad(const std::uint8_t* bytes, const std::size_t length) {
-    if (length == 7 && bytes[0] == 0x48 && bytes[1] == 0xC7 && bytes[2] == 0xC0) {
+    const std::size_t opcode = Codegen::DecodedInstruction{bytes, length}.OpcodeOffset();
+    const bool hasRex = opcode > 0 && (bytes[opcode - 1] & 0xF0) == 0x40;
+    const std::uint8_t rex = hasRex ? bytes[opcode - 1] : 0;
+
+    if (hasRex && rex == 0x48 && length - opcode == 6 && bytes[opcode] == 0xC7 && bytes[opcode + 1] == 0xC0) {
         std::uint32_t value = 0;
-        std::memcpy(&value, bytes + 3, sizeof(value));
+        std::memcpy(&value, bytes + opcode + 2, sizeof(value));
         return value;
     }
 
-    if (length == 5 && bytes[0] == 0xB8) {
+    if (!hasRex && length - opcode == 5 && bytes[opcode] == 0xB8) {
         std::uint32_t value = 0;
-        std::memcpy(&value, bytes + 1, sizeof(value));
+        std::memcpy(&value, bytes + opcode + 1, sizeof(value));
         return value;
     }
 
     return std::nullopt;
 }
-
-static constexpr std::uint8_t MOV_R10_FROM_RCX[] = {0x49, 0x89, 0xCA};
 
 static std::optional<std::uint32_t> ConstantSyscallNumber(
     const std::vector<std::uint8_t>& codeSection,
@@ -84,8 +86,10 @@ static std::optional<std::uint32_t> ConstantSyscallNumber(
         if (const auto value = ConstantRaxLoad(bytes, match.Length))
             return value;
 
-        const bool movesFirstSyscallArgument = match.Length == sizeof(MOV_R10_FROM_RCX)
-            && std::memcmp(bytes, MOV_R10_FROM_RCX, sizeof(MOV_R10_FROM_RCX)) == 0;
+        const std::size_t opcode = Codegen::DecodedInstruction{bytes, match.Length}.OpcodeOffset();
+        const bool hasRex = opcode > 0 && (bytes[opcode - 1] & 0xF0) == 0x40;
+        const bool movesFirstSyscallArgument = hasRex && bytes[opcode - 1] == 0x49
+            && match.Length - opcode == 2 && bytes[opcode] == 0x89 && bytes[opcode + 1] == 0xCA;
 
         if (!movesFirstSyscallArgument)
             return std::nullopt;
