@@ -142,35 +142,40 @@ void verifyStructured(const std::string& prefix, const ControlFlowGraph& graph) 
     }
 }
 
-void verifyLoopMergeDoesNotEnterNestedSelection() {
-    const std::vector<std::vector<std::uint32_t>> successors{{1, 4}, {2}, {5, 6}, {4}, {}, {3}, {3, 7}, {1}};
+ControlFlowGraph makeGraph(const std::vector<std::vector<std::uint32_t>>& successors) {
     ControlFlowGraph graph;
     graph.entryBlock = 0;
     for (std::uint32_t id = 0; id < successors.size(); ++id) {
         BasicBlock block;
         block.id = id;
+        block.startProgramCounter = id * 8;
+        block.endProgramCounter = id * 8 + 8;
+        block.instructionBegin = id * 2;
+        block.instructionEnd = id * 2 + 2;
         block.successors = successors[id];
+        auto& terminator = block.terminator;
         if (successors[id].empty()) {
-            block.terminator.kind = TerminatorKind::Return;
+            terminator.kind = TerminatorKind::Return;
         } else if (successors[id].size() == 1) {
-            block.terminator.kind = TerminatorKind::Branch;
-            block.terminator.trueBlock = successors[id][0];
+            terminator.kind = TerminatorKind::Branch;
+            terminator.trueBlock = successors[id][0];
         } else {
-            block.terminator.kind = TerminatorKind::ConditionalBranch;
-            block.terminator.trueBlock = successors[id][0];
-            block.terminator.falseBlock = successors[id][1];
+            terminator.kind = TerminatorKind::ConditionalBranch;
+            terminator.condition = BranchCondition::SccNonZero;
+            terminator.trueBlock = successors[id][0];
+            terminator.falseBlock = successors[id][1];
         }
         graph.blocks.push_back(std::move(block));
     }
-    graph.blocks[0].terminator.mergeBlock = 4;
-    graph.blocks[1].terminator.loopHeader = true;
-    graph.blocks[1].terminator.mergeBlock = 3;
-    graph.blocks[1].terminator.continueBlock = 7;
-    graph.blocks[2].terminator.mergeBlock = 6;
     for (const auto& block : graph.blocks) {
         for (const auto successor : block.successors) graph.blocks[successor].predecessors.push_back(block.id);
     }
+    return graph;
+}
 
+void verifyLoopMergeDoesNotEnterNestedSelection() {
+    auto graph = makeGraph({{1, 5}, {2, 3}, {5}, {5, 4}, {1}, {}});
+    Structurizer{}.Structurize(graph);
     verifyStructured("loop merge structural dominance: ", graph);
 }
 
