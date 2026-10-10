@@ -165,7 +165,7 @@ int main() {
     Require(fchmod_nid_postfix(descriptor, 0600) == -1 && *__error_nid_postfix() == 9);
     Require(futimes_nid_postfix(descriptor, nullptr) == -1 && *__error_nid_postfix() == 9);
     Require(fdatasync_nid_postfix(descriptor) == -1 && *__error_nid_postfix() == 9);
-    Require(sceKernelFdatasync(descriptor) == -1);
+    Require(sceKernelFdatasync(descriptor) == static_cast<int>(0x80020009u));
 #endif
     const int socket = socket_nid_postfix(2, 2, 0);
     Require(socket >= 0);

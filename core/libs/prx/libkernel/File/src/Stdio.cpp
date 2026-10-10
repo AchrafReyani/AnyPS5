@@ -465,10 +465,11 @@ int APS5_VABI sceKernelFsync(int fd) {
 
 int APS5_VABI sceKernelFdatasync(int fd) {
 #ifdef _WIN32
- return ::_commit(fd);
+ if (::_commit(fd) != 0) return SceErrorFromErrno(errno);
 #else
- return ::fdatasync(fd);
+ if (::fdatasync(fd) != 0) return SceErrorFromErrno(errno);
 #endif
+ return 0;
 }
 
 int APS5_VABI sceKernelWriteThrottlingStatus(std::uint64_t* status) {
