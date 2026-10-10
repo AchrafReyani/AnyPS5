@@ -163,6 +163,8 @@ __attribute__((noinline)) static void APS5_VABI RunChecks() {
     int scanNum = 0;
     char scanWord[8] = {};
     Require(ScanListS("123 test", "%d %s", &scanNum, scanWord, 8u) == 2 && scanNum == 123 && std::strcmp(scanWord, "test") == 0);
+    char tooSmall[4] = {'x', 'x', 'x', 'x'};
+    Require(ScanListS("abcdef", "%s", tooSmall, 4u) == 0 && tooSmall[0] == '\0');
     std::puts("Formatting checks passed: 10000 iterations");
 }
 
