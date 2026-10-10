@@ -107,20 +107,7 @@ std::vector<GuestArtifact> GuestModuleBuilder::Build(const std::filesystem::path
             return name == identity || name == identity + ".prx" || name == identity + ".sprx" || name == identity + ".suprx";
         });
     };
-    const auto foldFilename = [](std::string name) {
-        for (auto& character : name) if (character >= 'A' && character <= 'Z') character = static_cast<char>(character + ('a' - 'A'));
-        return name;
-    };
     for (const auto& path : paths) discovered.emplace(path, GuestImageReader().Read(path, reader.Read(path.string())));
-    std::set<std::string> unresolved;
-    for (const auto& name : missingNeeded) {
-        if (std::none_of(discovered.begin(), discovered.end(), [&](const auto& entry) {
-            const auto& [path, image] = entry;
-            return path.filename().string() == name || image.Soname == name ||
-                (windows && foldFilename(path.filename().string()) == foldFilename(name)) || matchesIdentity(name, image.ModuleNames);
-        })) unresolved.insert(name);
-    }
-    if (!unresolved.empty()) throw Domain::RelinkerException(missingModuleMessage + " Missing dependency: " + *unresolved.begin());
     if (!unmatchedExclusions.empty()) throw Domain::RelinkerException("Excluded guest module file not found: " + *unmatchedExclusions.begin());
     std::sort(paths.begin(), paths.end());
     paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
