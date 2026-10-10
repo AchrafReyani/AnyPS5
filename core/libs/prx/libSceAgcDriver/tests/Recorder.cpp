@@ -3830,6 +3830,10 @@ void pipelineLibraryTests(const Device& device) {
     state.colors.front().format = VK_FORMAT_R16G16B16A16_SFLOAT;
     static_cast<void>(lookup());
     Require(counters().built == std::array<std::uint64_t, 4>{2, 2, 3, 3}, "another target format rebuilt more than the fragment output library");
+    WaitForOptimizedPipelines(context.device);
+    const auto lto = std::getenv("APS5_NO_PIPELINE_LTO") == nullptr;
+    Require(counters().optimized == (lto ? counters().linked : 0u), "a linked pipeline was not optimized in the background");
+    Require(first->Optimized() == lto && culled->Optimized() == lto, "a pipeline did not switch to its optimized link");
     ClearCachedPipelines(context.device);
     Require(counters().linked == 0, "clearing the pipelines kept the device's libraries");
     std::cout << "Pipeline library reuse tests passed\n";
