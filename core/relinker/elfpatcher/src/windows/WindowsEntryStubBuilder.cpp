@@ -176,7 +176,7 @@ WindowsEntryStub WindowsEntryStubBuilder::Build(const std::uint32_t dataRva, con
     std::vector<std::uint32_t> resolvedPaths;
     for (std::size_t index = 0; index < libraries.size(); ++index)
         resolvedPaths.push_back(reserve(PathCapacity));
-    const std::uint32_t programAnsiPath = dependencyDiagnostics ? reserve(PathCapacity) : 0;
+    const std::uint32_t programText = dependencyDiagnostics ? reserve(PathCapacity) : 0;
 
     const auto diagnosticsOffset = data.size();
     std::vector<std::string> errors = {"FAIL: cannot obtain executable path\n", "FAIL: executable or library path is too long\n", "FAIL: executable path has no directory\n"};
@@ -287,8 +287,10 @@ WindowsEntryStub WindowsEntryStubBuilder::Build(const std::uint32_t dataRva, con
         code.PatchBranch(success, code.GetRva());
     };
 
-    const auto writeAnsi = [&](const std::uint32_t destination) {
-        code.Emit({0x31, 0xc9, 0x31, 0xd2, 0x41, 0xb9, 0xff, 0xff, 0xff, 0xff});
+    const auto writeUtf8 = [&](const std::uint32_t destination) {
+        code.Emit({0xb9});
+        code.U32(65001);
+        code.Emit({0x31, 0xd2, 0x41, 0xb9, 0xff, 0xff, 0xff, 0xff});
         code.Rip({0x48, 0x8d, 0x05}, destination);
         code.Emit({0x48, 0x89, 0x44, 0x24, 0x20, 0x48, 0xc7, 0x44, 0x24, 0x28});
         code.U32(PathCapacity);
@@ -331,7 +333,7 @@ WindowsEntryStub WindowsEntryStubBuilder::Build(const std::uint32_t dataRva, con
     requireNonzero(directoryError, 0xc000000du);
     if (dependencyDiagnostics) {
         code.Rip({0x4c, 0x8d, 0x05}, programPath);
-        writeAnsi(programAnsiPath);
+        writeUtf8(programText);
     }
 
     for (std::size_t index = 0; index < libraries.size(); ++index) {
@@ -354,7 +356,7 @@ WindowsEntryStub WindowsEntryStubBuilder::Build(const std::uint32_t dataRva, con
             code.Rip({0x48, 0x8d, 0x0d}, modulePath);
         }
         code.Emit({0x48, 0x89, 0xce, 0x49, 0x89, 0xf0});
-        writeAnsi(resolvedPaths[index]);
+        writeUtf8(resolvedPaths[index]);
 
         if (dependencyDiagnostics) {
             writeString(loading);
@@ -373,7 +375,7 @@ WindowsEntryStub WindowsEntryStubBuilder::Build(const std::uint32_t dataRva, con
         writeLastError();
         if (dependencyDiagnostics) {
             code.Rip({0x48, 0x8d, 0x0d}, resolvedPaths[index]);
-            code.Rip({0x48, 0x8d, 0x15}, programAnsiPath);
+            code.Rip({0x48, 0x8d, 0x15}, programText);
             dependencyCalls.push_back(code.Branch({0xe8}));
         }
         raise(0xc0000135u);
