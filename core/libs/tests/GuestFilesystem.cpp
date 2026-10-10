@@ -1,13 +1,16 @@
 #include "SceTypes.hpp"
 #include "prx/libc/include/general/VabiMacros.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 #ifdef _WIN32
 #include <io.h>
+#include <windows.h>
 #else
 #include <unistd.h>
 #endif
@@ -263,6 +266,33 @@ int main() {
     Require(stat_nid_postfix(dangling.string().c_str(), &status) == -1 && *__error_nid_postfix() == 2);
     Require(lstat_nid_postfix((root / "present.txt" / "child").string().c_str(), &linkStatus) == -1 && *__error_nid_postfix() == 20);
     Require(unlink_nid_postfix(link.string().c_str()) == 0 && unlink_nid_postfix(dangling.string().c_str()) == 0);
+#else
+    const auto targetDirectory = root / "target-directory";
+    Require(std::filesystem::create_directory(targetDirectory));
+    const auto fileLink = root / "file-link";
+    const auto directoryLink = root / "directory-link";
+    Require(CreateSymbolicLinkW(fileLink.c_str(), present.c_str(), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
+    Require(CreateSymbolicLinkW(directoryLink.c_str(), targetDirectory.c_str(),
+        SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != 0);
+    const auto checkUnsupportedLink = [](const std::filesystem::path& link) {
+        FileStat untouched;
+        std::memset(&untouched, 0x5a, sizeof(untouched));
+        constexpr int sentinelError = 123;
+        *__error_nid_postfix() = sentinelError;
+        bool rejected = false;
+        try {
+            lstat_nid_postfix(link.string().c_str(), &untouched);
+        } catch (const std::runtime_error& error) {
+            rejected = std::strcmp(error.what(), "lstat of a Windows symbolic link not implemented") == 0;
+        }
+        const bool errorUnchanged = *__error_nid_postfix() == sentinelError;
+        const auto* bytes = reinterpret_cast<const unsigned char*>(&untouched);
+        const bool statusUnchanged = std::all_of(bytes, bytes + sizeof(untouched), [](unsigned char value) { return value == 0x5a; });
+        return rejected && errorUnchanged && statusUnchanged;
+    };
+    Require(checkUnsupportedLink(fileLink));
+    Require(checkUnsupportedLink(directoryLink));
+    Require(std::filesystem::remove(fileLink) && std::filesystem::remove(directoryLink));
 #endif
     FileStat identity{};
     FileStat byDescriptor{};
