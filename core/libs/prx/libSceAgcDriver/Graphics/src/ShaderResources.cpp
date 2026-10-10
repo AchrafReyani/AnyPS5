@@ -133,6 +133,7 @@ struct TextureCache {
     std::uint64_t budget = 0;
     std::uint64_t reportedBudget = 0;
     std::chrono::steady_clock::time_point reportedAt{};
+    std::uint64_t erasures = 0;
 };
 
 TextureCache& Textures() {
@@ -191,6 +192,7 @@ void eraseTexture(TextureCache& cache, std::list<CachedTexture>::iterator it) {
     }
     cache.index.erase(it->key);
     cache.entries.erase(it);
+    ++cache.erasures;
 }
 
 void dropUncachedViews(TextureCache& cache) {
@@ -259,6 +261,52 @@ void reportCacheCounts(TextureCache& cache, std::uint64_t budget) {
     cache.countsReported = now;
     const auto counts = std::exchange(cache.counts, {});
     AgcDriver::ProfilePrint_nid_no_patch("[texture-cache] (10 s): %llu textures cached, %llu used uncached (first use this frame, the least recently used entry used this frame or the last), %llu evicted, %llu held ones passed over, %llu found changed; %llu MiB in %zu entries, budget %llu MiB, frame %llu\n", static_cast<unsigned long long>(counts.inserted), static_cast<unsigned long long>(counts.uncached), static_cast<unsigned long long>(counts.evicted), static_cast<unsigned long long>(counts.passed), static_cast<unsigned long long>(counts.stale), static_cast<unsigned long long>(cache.bytes >> 20u), cache.entries.size(), static_cast<unsigned long long>(budget >> 20u), static_cast<unsigned long long>(Recorder::Presents()));
+}
+
+struct ImageMemoEntry {
+    VkDevice device = VK_NULL_HANDLE;
+    std::array<std::uint32_t, 8> words{};
+    GuestTextureResource resource{};
+    std::uint64_t guestBytes = 0;
+    VkComponentMapping components{};
+    bool hasEntry = false;
+    std::list<CachedTexture>::iterator entry{};
+    std::uint64_t erasures = 0;
+};
+
+constexpr std::size_t ImageMemoSlots = 1024;
+thread_local std::unique_ptr<std::array<ImageMemoEntry, ImageMemoSlots>> imageMemo;
+
+ImageMemoEntry& imageMemoSlot(std::span<const std::uint32_t> words) {
+    if (imageMemo == nullptr) imageMemo = std::make_unique<std::array<ImageMemoEntry, ImageMemoSlots>>();
+    const auto hash = hashWords(14695981039346656037ull, words.data(), words.size());
+    return (*imageMemo)[(hash ^ (hash >> 29u)) % ImageMemoSlots];
+}
+
+const ImageMemoEntry& decodedImage(VkDevice device, std::span<const std::uint32_t> words) {
+    auto& slot = imageMemoSlot(words);
+    if (slot.device == device && std::equal(words.begin(), words.end(), slot.words.begin())) return slot;
+    slot.device = VK_NULL_HANDLE;
+    slot.resource = DecodeTextureResource(words);
+    slot.guestBytes = DescribeSurface(slot.resource).guestBytes;
+    slot.components = ViewComponents(slot.resource);
+    std::copy(words.begin(), words.end(), slot.words.begin());
+    slot.hasEntry = false;
+    slot.device = device;
+    return slot;
+}
+
+std::list<CachedTexture>::iterator findSampledEntry(TextureCache& cache, VkDevice device, const std::array<std::uint32_t, 8>& words, VkComponentMapping components) {
+    auto& slot = imageMemoSlot(words);
+    const bool same = slot.device == device && slot.words == words && slot.components.r == components.r && slot.components.g == components.g && slot.components.b == components.b && slot.components.a == components.a;
+    if (same && slot.hasEntry && slot.erasures == cache.erasures) return slot.entry;
+    const auto it = findTexture(cache, MakeTextureKey(device, words, components));
+    if (same) {
+        slot.hasEntry = it != cache.entries.end();
+        slot.entry = it;
+        slot.erasures = cache.erasures;
+    }
+    return it;
 }
 
 // APS5_PROFILE_DRAW: what the sampled-texture and storage-image lookups did, printed as [textures]
@@ -2895,17 +2943,18 @@ bool ShaderResources::precollectImages() {
             ImageRecord record;
             record.sampled = binding.kind == ShaderRecompiler::DescriptorKind::SampledImage;
             if (words[0] != 0u || (words[1] & 0xffu) != 0u) {
-                record.resource = DecodeTextureResource(words);
-                record.guestBytes = DescribeSurface(record.resource).guestBytes;
+                const auto* memo = words.size() == 8 ? &decodedImage(context.device, words) : nullptr;
+                record.resource = memo != nullptr ? memo->resource : DecodeTextureResource(words);
+                record.guestBytes = memo != nullptr ? memo->guestBytes : DescribeSurface(record.resource).guestBytes;
                 record.generation = GuestMemory::CollectWrites(record.resource.baseAddress, static_cast<std::size_t>(record.guestBytes));
                 record.decoded = true;
                 if (record.sampled && !noRecords && words.size() == 8 && (binding.imageDepthCompare.empty() || !binding.imageDepthCompare.at(element))) {
                     std::copy(words.begin(), words.end(), record.words.begin());
-                    record.components = ViewComponents(record.resource);
+                    record.components = memo->components;
                     record.keys = TextureClearKeys(record.resource, record.guestBytes);
                     auto& cache = Textures();
                     std::lock_guard lock(cache.mutex);
-                    if (const auto it = findTexture(cache, MakeTextureKey(context.device, words, record.components)); it != cache.entries.end()) {
+                    if (const auto it = findSampledEntry(cache, context.device, record.words, record.components); it != cache.entries.end()) {
                         record.texture = it->texture;
                         record.source = it->source;
                         record.entryKeys = it->keys;
@@ -2967,7 +3016,7 @@ std::shared_ptr<Texture> ShaderResources::fastTexture(const ImageRecord& record)
     // next lookup would make another), and it takes the stage-A generation like a hit would.
     auto& cache = Textures();
     std::lock_guard lock(cache.mutex);
-    const auto it = findTexture(cache, MakeTextureKey(context.device, record.words, record.components));
+    const auto it = findSampledEntry(cache, context.device, record.words, record.components);
     if (it == cache.entries.end() || it->texture != record.texture) return nullptr;
     if (it->source == nullptr) it->generation = record.generation;
     touchTexture(cache, it);
