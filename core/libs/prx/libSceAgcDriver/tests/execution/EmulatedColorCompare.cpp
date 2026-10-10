@@ -189,7 +189,7 @@ float Expected(std::uint32_t tid, const Sampler& sampler, bool offsets) {
     const float a = cu - std::floor(cu);
     const float b = cv - std::floor(cv);
     const float top = ReferenceTexel(x, y, reference, sampler) * (1.0f - a) + ReferenceTexel(x + 1, y, reference, sampler) * a;
-    const float bottom = ReferenceTexel(x, y + 1, reference, sampler) * (1.0f - b) + ReferenceTexel(x + 1, y + 1, reference, sampler) * b;
+    const float bottom = ReferenceTexel(x, y + 1, reference, sampler) * (1.0f - a) + ReferenceTexel(x + 1, y + 1, reference, sampler) * a;
     return top * (1.0f - b) + bottom * b;
 }
 
