@@ -5,12 +5,12 @@
 #include <atomic>
 #include <cstdint>
 #ifndef _WIN32
-#include <unistd.h>
 #include <cerrno>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <sys/mman.h>
 #endif
-#include <sstream>
-#include <fstream>
 #include <cstdio>
 #include <iterator>
 #include <map>
@@ -167,12 +167,13 @@ private:
 #if defined(__linux__)
     void SeedLinuxUsedRanges() {
         std::ifstream maps("/proc/self/maps");
+        if (!maps.is_open()) throw std::runtime_error("guest arena: cannot open /proc/self/maps");
         std::string line;
         while (std::getline(maps, line)) {
             std::istringstream fields(line);
             std::uintptr_t begin = 0, end = 0;
             char dash = 0;
-            if (!(fields >> std::hex >> begin >> dash >> end) || end <= begin) continue;
+            if (!(fields >> std::hex >> begin >> dash >> end) || dash != '-' || end <= begin) throw std::runtime_error("guest arena: malformed /proc/self/maps line: " + line);
             if (end <= ArenaStart || begin >= ApplicationAreaEnd) continue;
             const auto first = std::max(begin, ArenaStart);
             const auto last = std::min(end, ApplicationAreaEnd);
@@ -190,10 +191,12 @@ private:
         constexpr std::uintptr_t kChunk = 1ULL << 30;
         for (std::uintptr_t cursor = from; cursor < to; cursor += kChunk) {
             const auto end = std::min(cursor + kChunk, to);
-            if (mmap(reinterpret_cast<void*>(cursor), end - cursor, PROT_NONE,
-                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0) != MAP_FAILED)
-                continue;
-            const int failed = errno;
+            void* const wanted = reinterpret_cast<void*>(cursor);
+            void* const placed = mmap(wanted, end - cursor, PROT_NONE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
+            if (placed == wanted) continue;
+            const int failed = placed == MAP_FAILED ? errno : EINVAL;
+            if (placed != MAP_FAILED) munmap(placed, end - cursor);
             if (failed != EEXIST) {
                 char message[128];
                 std::snprintf(message, sizeof(message), "guest arena: cannot reserve 0x%llx+0x%llx",
@@ -218,14 +221,6 @@ private:
             _used.emplace(from, to);
             _hostRegions.emplace_back(from, to);
         }
-    }
-
-    static std::uintptr_t PageSize() {
-        static const std::uintptr_t value = [] {
-            const long configured = sysconf(_SC_PAGESIZE);
-            return configured > 0 ? static_cast<std::uintptr_t>(configured) : 4096u;
-        }();
-        return value;
     }
 #endif
 
