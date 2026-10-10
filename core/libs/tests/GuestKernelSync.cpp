@@ -43,6 +43,7 @@ int main() {
     Require(sceKernelMkdir("kernel_sync_probe/nested/", 0777) == 0);
     Require(std::filesystem::is_directory("kernel_sync_probe/nested") && Recorded("kernel_sync_probe/nested"));
     Require(sceKernelMkdir("kernel_sync_probe/nested/", 0777) == static_cast<int>(0x80020011u));
+    Require(sceKernelMkdir("kernel_sync_probe/./", 0777) == static_cast<int>(0x80020011u));
     Require(sceKernelMkdir("kernel_sync_probe/existing.bin/child", 0777) == static_cast<int>(0x80020014u));
     const int reader = sceKernelOpen("kernel_sync_probe/existing.bin", 0x0, 0);
     Require(reader >= 0 && sceKernelClose(reader) == 0);
