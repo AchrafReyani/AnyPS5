@@ -223,6 +223,7 @@ static void AddWaveformBlocks(Ngs2Voice& voice, const Ngs2SamplerVoiceWaveformBl
         const auto& block = param.blocks[i];
         if (block.num_samples == 0 && block.data_size == 0) continue;
         if (allowsSilence && block.data_size == 0) {
+            if (voice.waveformType == SCE_NGS2_WAVEFORM_TYPE_ATRAC9) throw std::runtime_error("NGS2: a dataless waveform block under the silence flag is not implemented for ATRAC9 voices");
             voice.blocks.push_back({nullptr, block});
             continue;
         }
