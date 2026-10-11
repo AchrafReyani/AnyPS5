@@ -1,3 +1,4 @@
+import json
 import tempfile
 import sys
 import unittest
@@ -66,6 +67,23 @@ class DatabaseCacheTests(unittest.TestCase):
             with patch.object(nid_names.urllib.request, "urlretrieve") as download:
                 self.assertEqual(nid_names.load_db(cache), {"nid1": "sceExisting"})
                 download.assert_not_called()
+
+class NidArgumentTests(unittest.TestCase):
+    def test_nids_starting_with_a_dash_are_accepted(self):
+        self.assertEqual(
+            nid_names.nid_arguments(["--nid", "-nvxBWa0iDs", "ZjtRqSMJwdw", "--json"]),
+            ["--nid=-nvxBWa0iDs", "--nid=ZjtRqSMJwdw", "--json"])
+
+    def test_main_resolves_every_nid_given_after_nid(self):
+        database = {"-nvxBWa0iDs": "gethostname", "ZjtRqSMJwdw": "sinh"}
+        arguments = ["nid_names.py", "--json", "--nid", "-nvxBWa0iDs", "ZjtRqSMJwdw"]
+        with (patch.object(sys, "argv", arguments),
+              patch.object(nid_names, "load_db", return_value=database),
+              patch.object(nid_names, "collect_real_names", return_value=set()),
+              patch("builtins.print") as printed):
+            self.assertEqual(nid_names.main(), 0)
+        rows = json.loads(printed.call_args.args[0])["rows"]
+        self.assertEqual({row["nid"]: row["suggestion"] for row in rows}, database)
 
 
 if __name__ == "__main__":

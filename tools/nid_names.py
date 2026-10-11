@@ -85,16 +85,32 @@ def collect_real_names():
     return names
 
 
+def nid_arguments(arguments):
+    options = {"--db", "--json", "--nid", "-h", "--help"}
+    normalized = []
+    collecting = False
+    for argument in arguments:
+        if argument == "--nid":
+            collecting = True
+            continue
+        if collecting and argument not in options and not argument.startswith("--db="):
+            normalized.append("--nid=" + argument)
+            continue
+        collecting = False
+        normalized.append(argument)
+    return normalized
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Suggest real names for Unknown NID stubs")
     parser.add_argument("--db", default=os.environ.get("ANYPS5_NID_DB"),
                         help="NID database CSV (downloaded to a cache dir by default)")
-    parser.add_argument("--nid", nargs="*", default=[],
+    parser.add_argument("--nid", action="append", default=[],
                         help="resolve only these NIDs instead of scanning the tree")
     parser.add_argument("--json", action="store_true",
                         help="emit machine-readable JSON")
-    args = parser.parse_args()
+    args = parser.parse_args(nid_arguments(sys.argv[1:]))
 
     db_path = Path(args.db) if args.db else DEFAULT_CACHE
     db = load_db(db_path)
