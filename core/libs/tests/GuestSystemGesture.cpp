@@ -65,6 +65,14 @@ int main() {
     Require(sceSystemGestureAppendTouchRecognizer(handle, nullptr) == invalidArgument);
     Require(sceSystemGestureUpdateTouchRecognizerRectangle(handle, &recognizer, nullptr) == invalidArgument);
     Require(sceSystemGestureAppendTouchRecognizer(handle + 1, &recognizer) == invalidHandle);
+    Require(sceSystemGestureRemoveTouchRecognizer(handle, nullptr) == invalidArgument);
+    Require(sceSystemGestureResetTouchRecognizer(handle, nullptr) == invalidArgument);
+    Require(sceSystemGestureUpdateTouchRecognizer(handle, nullptr) == invalidArgument);
+    Require(sceSystemGestureUpdateTouchRecognizerRectangle(handle, nullptr, &rectangle) == invalidArgument);
+    Require(sceSystemGestureRemoveTouchRecognizer(handle + 1, &recognizer) == invalidHandle);
+    Require(sceSystemGestureResetTouchRecognizer(handle + 1, &recognizer) == invalidHandle);
+    Require(sceSystemGestureUpdateTouchRecognizer(handle + 1, &recognizer) == invalidHandle);
+    Require(sceSystemGestureUpdateTouchRecognizerRectangle(handle + 1, &recognizer, &rectangle) == invalidHandle);
     Require(sceSystemGestureResetPrimitiveTouchRecognizer(handle + 1) == invalidHandle);
     Require(sceSystemGestureUpdateAllTouchRecognizer(handle + 1) == invalidHandle);
     Require(sceSystemGestureUpdatePrimitiveTouchRecognizer(handle + 1, nullptr) == invalidHandle);
